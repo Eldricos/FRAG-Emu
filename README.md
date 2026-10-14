@@ -18,7 +18,8 @@ per-game compatibility fixes.
 
 - Linux on x86-64 (other hosts may come later)
 - Wine 9.0 or newer, including 32-bit support (on Debian/Ubuntu: `wine`, `wine32:i386`, `wine64`)
-- To build: CMake 3.16+, a C++17 compiler
+- To build: CMake 3.16+, a C++17 compiler, and Ninja
+  (on Debian/Ubuntu: `sudo apt install build-essential cmake ninja-build`)
 - Optional, for the test programs:
   - `i686-w64-mingw32-gcc` (Win32 tests; `gcc-mingw-w64-i686` on Debian/Ubuntu)
   - [Open Watcom v2](https://github.com/open-watcom/open-watcom-v2) (Win16 tests), with `WATCOM` set to its install directory
@@ -31,6 +32,10 @@ cmake -S . -B build -G Ninja
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
+
+Without Ninja, leave out `-G Ninja` and CMake uses Make instead. If a configure
+fails, delete the `build` folder before retrying: CMake caches the failed
+settings, and the same error repeats until the folder is removed.
 
 ## Usage
 
