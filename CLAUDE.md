@@ -1,0 +1,53 @@
+# FRAG-Emu project notes
+
+FRAG ("Faithfully Runs Ancient Games") runs Windows 3.1/95/98 games on modern
+systems with a DOSBox-like experience. It is built on Wine; FRAG's value is the
+per-game packaging and 9x-specific fixes around it. Games only, not general apps.
+
+## Decisions
+
+- **Approach:** API reimplementation via Wine, not full-PC emulation. Fall back to
+  86Box/DOSBox-X with a real Win98 install for titles that can't work this way.
+- **Hosts:** Linux x86-64 first. Windows/macOS hosts and ARM (Box64/FEX) only later.
+- **Language:** C++17 for the launcher, C for Windows test programs. CMake + Ninja.
+- **License:** GPL-3.0-or-later. Wine-derived code keeps its LGPL-2.1+ headers.
+  The owner can submit their own Wine fixes upstream under LGPL separately.
+- **No game data in the repo**, ever. `.gitignore` blocks disc images and `games/`.
+
+## Layout
+
+- `src/config.*` — `frag.conf` parser (`[game]`, `[wine]`, `[drive X]`, `[dlls]`).
+- `src/wine.*` — prefix creation, drive symlinks, registry (version + drive types), launching.
+- `src/main.cpp` — CLI: `frag run`, `frag prefix`, `--version`.
+- `tests/win32`, `tests/win16` — tiny Windows programs built with MinGW and Open Watcom.
+  They check Windows version, drive mapping and the message loop. `tests/run_test.sh`
+  runs them through `frag` (under `xvfb-run` without a display).
+
+## Build and test
+
+```sh
+WATCOM=/opt/watcom cmake -S . -B build -G Ninja
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+Cloud sessions need: `wine wine32:i386 wine64 gcc-mingw-w64-i686` (apt, after
+`dpkg --add-architecture i386`) and Open Watcom from
+`https://github.com/open-watcom/open-watcom-v2/releases/download/Current-build/ow-snapshot.tar.xz`
+extracted to `/opt/watcom`. First prefix creation takes ~20 s.
+
+## Known behaviour
+
+- Passing a Windows path (`D:\GAME.EXE`) to Wine makes the program see its own drive
+  letter and a matching working directory; verified by `win32_hello`.
+- Win16 programs run under Ubuntu's Wine 9.0 in this environment (`win16_hello`).
+- `WINEPREFIX` must be absolute; `data_dir()` makes `FRAG_HOME` absolute.
+
+## Roadmap
+
+1. ~~Skeleton: launcher, per-game prefix, drive mounting, Win16 + Win32 smoke tests.~~
+2. Disc images: mount ISO/CUE (likely via fuseiso or our own ISO9660 reader), CD audio.
+3. Graphics: bundle and configure cnc-ddraw, DXVK (D3D8/9), a Glide wrapper; per-game choice.
+4. Game-focused tests: DirectDraw 8-bit palette mode, DirectSound, joystick, timing.
+5. Compatibility database: known-good settings per game, shipped with FRAG.
+6. Win9x-specific fixes in a Wine fork, driven by real games that break.

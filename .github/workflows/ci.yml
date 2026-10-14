@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Wine and toolchains
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y ninja-build xvfb gcc-mingw-w64-i686 wine wine32:i386 wine64
+          sudo mkdir -p /opt/watcom
+          curl -sSLf https://github.com/open-watcom/open-watcom-v2/releases/download/Current-build/ow-snapshot.tar.xz \
+            | sudo tar -xJ -C /opt/watcom
+
+      - name: Build
+        run: |
+          WATCOM=/opt/watcom cmake -S . -B build -G Ninja
+          cmake --build build
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure

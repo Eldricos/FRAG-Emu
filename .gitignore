@@ -66,3 +66,23 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# --- FRAG-Emu specific ---
+# Game data must never be committed (copyright). Keep test games outside the repo.
+games/
+*.iso
+*.cue
+*.bin
+*.img
+*.mdf
+*.mds
+*.ccd
+*.sub
+*.nrg
+
+# Wine prefixes created during local testing
+prefixes/
+.wine*/
+
+# Local, per-user configuration
+*.local.conf

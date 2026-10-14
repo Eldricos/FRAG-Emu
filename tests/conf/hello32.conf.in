@@ -1,0 +1,13 @@
+# Win32 smoke test: hello32.exe on a CD-ROM drive D:, reporting Windows 98.
+[game]
+name = test-hello32
+exe = D:\HELLO32.EXE
+args = D
+
+[wine]
+version = win98
+
+[drive D]
+path = @TEST_CD@
+type = cdrom
+label = FRAGTEST
