@@ -11,7 +11,7 @@ namespace frag {
 
 struct RunOptions {
     bool verbose = false;
-    std::string wine_debug = "-all";    // value for WINEDEBUG
+    std::string wine_debug = "fixme-all";  // WINEDEBUG: keep err/warn messages, hide fixme noise
     std::vector<std::string> extra_args;  // appended after the config's args
 };
 
