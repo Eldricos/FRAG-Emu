@@ -36,8 +36,10 @@ private:
     const GameConfig& cfg_;
     bool verbose_;
     std::string wine_;
+    std::string wine_source_;  // where wine_ came from, for error messages
     fs::path path_;
 
+    void check_wine() const;
     int wine_cmd(const std::vector<std::string>& args, const std::string& debug = "-all") const;
     void sync_drives();
     void write_registry();

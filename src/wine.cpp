@@ -79,9 +79,33 @@ fs::path data_dir() {
 
 WinePrefix::WinePrefix(const GameConfig& cfg, bool verbose)
     : cfg_(cfg), verbose_(verbose), path_(data_dir() / "prefixes" / sanitize(cfg.name)) {
-    if (!cfg.wine_binary.empty()) wine_ = cfg.wine_binary;
-    else if (const char* w = std::getenv("FRAG_WINE"); w && *w) wine_ = w;
-    else wine_ = "wine";
+    if (!cfg.wine_binary.empty()) {
+        wine_ = cfg.wine_binary;
+        wine_source_ = "[wine] binary in " + cfg.file.string();
+    } else if (const char* w = std::getenv("FRAG_WINE"); w && *w) {
+        wine_ = w;
+        wine_source_ = "the FRAG_WINE environment variable";
+    } else {
+        wine_ = "wine";
+        wine_source_ = "the default (wine on your PATH)";
+    }
+}
+
+// Fails early with a clear message instead of a bare exec error from the child.
+void WinePrefix::check_wine() const {
+    auto executable = [](const fs::path& p) { return access(p.c_str(), X_OK) == 0 && !fs::is_directory(p); };
+    if (wine_.find('/') != std::string::npos) {
+        if (executable(wine_)) return;
+    } else if (const char* path = std::getenv("PATH")) {
+        std::string dirs = path;
+        for (size_t b = 0, e; b <= dirs.size(); b = e + 1) {
+            e = dirs.find(':', b);
+            if (e == std::string::npos) e = dirs.size();
+            if (e > b && executable(fs::path(dirs.substr(b, e - b)) / wine_)) return;
+        }
+    }
+    throw std::runtime_error("Wine not found: '" + wine_ + "' (from " + wine_source_ +
+                             "). Install Wine or correct that setting.");
 }
 
 int WinePrefix::wine_cmd(const std::vector<std::string>& args, const std::string& debug) const {
@@ -96,6 +120,7 @@ int WinePrefix::wine_cmd(const std::vector<std::string>& args, const std::string
 }
 
 void WinePrefix::prepare() {
+    check_wine();
     if (!fs::exists(path_ / "system.reg")) {
         if (verbose_) std::cerr << "frag: creating prefix " << path_ << '\n';
         fs::create_directories(path_);
