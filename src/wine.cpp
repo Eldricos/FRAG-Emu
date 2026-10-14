@@ -8,6 +8,7 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <set>
 #include <stdexcept>
 
@@ -231,8 +232,20 @@ int WinePrefix::run(const RunOptions& opts) {
     // Many games load data relative to the current directory, so start in the exe's folder.
     fs::current_path(host_exe.parent_path());
 
+    // Prefer video codecs a game installs over Wine's built-in ones. Installers
+    // self-register them, which fails against Wine's builtins (InstallShield
+    // error -119), and the originals are more faithful. Wine falls back to its
+    // builtin when the game ships none. Config [dlls] entries take precedence.
+    std::map<std::string, std::string> dlls = {
+        {"ir32_32", "native,builtin"},   // Indeo 3
+        {"ir41_32", "native,builtin"},   // Indeo 4
+        {"ir50_32", "native,builtin"},   // Indeo 5
+        {"iccvid", "native,builtin"},    // Cinepak
+        {"msvidc32", "native,builtin"},  // Microsoft Video 1
+    };
+    for (const auto& [dll, mode] : cfg_.dll_overrides) dlls[dll] = mode;
     std::string overrides = "mscoree,mshtml=";
-    for (const auto& [dll, mode] : cfg_.dll_overrides) overrides += ";" + dll + "=" + mode;
+    for (const auto& [dll, mode] : dlls) overrides += ";" + dll + "=" + mode;
 
     std::vector<std::string> argv{wine_, exe};
     argv.insert(argv.end(), cfg_.args.begin(), cfg_.args.end());

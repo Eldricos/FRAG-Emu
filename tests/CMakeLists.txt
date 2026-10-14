@@ -18,6 +18,23 @@ if(MINGW32_CC)
   add_test(NAME win32_hello
            COMMAND ${RUN_TEST} $<TARGET_FILE:frag> ${CMAKE_CURRENT_BINARY_DIR}/hello32.conf)
   set_tests_properties(win32_hello PROPERTIES TIMEOUT 300)
+
+  # Codec self-registration: a separate "CD" so the codec DLL can't shadow other tests.
+  set(TEST_CODEC_CD ${CMAKE_CURRENT_BINARY_DIR}/codec-cd)
+  file(MAKE_DIRECTORY ${TEST_CODEC_CD})
+  add_custom_command(
+    OUTPUT ${TEST_CODEC_CD}/IR50_32.DLL ${TEST_CODEC_CD}/CODEC_INSTALL.EXE
+    COMMAND ${MINGW32_CC} -O2 -Wall -shared -Wl,--kill-at -o ${TEST_CODEC_CD}/IR50_32.DLL
+            ${CMAKE_CURRENT_SOURCE_DIR}/win32/codec_dll.c
+    COMMAND ${MINGW32_CC} -O2 -Wall -o ${TEST_CODEC_CD}/CODEC_INSTALL.EXE
+            ${CMAKE_CURRENT_SOURCE_DIR}/win32/codec_install.c
+    DEPENDS win32/codec_dll.c win32/codec_install.c
+    COMMENT "Building codec registration test")
+  add_custom_target(test_codec ALL DEPENDS ${TEST_CODEC_CD}/IR50_32.DLL ${TEST_CODEC_CD}/CODEC_INSTALL.EXE)
+  configure_file(conf/codec.conf.in ${CMAKE_CURRENT_BINARY_DIR}/codec.conf @ONLY)
+  add_test(NAME win32_codec_register
+           COMMAND ${RUN_TEST} $<TARGET_FILE:frag> ${CMAKE_CURRENT_BINARY_DIR}/codec.conf)
+  set_tests_properties(win32_codec_register PROPERTIES TIMEOUT 300)
 else()
   message(STATUS "i686-w64-mingw32-gcc not found: Win32 tests disabled")
 endif()
