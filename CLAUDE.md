@@ -20,7 +20,8 @@ per-game packaging and 9x-specific fixes around it. Games only, not general apps
 - `src/wine.*` — prefix creation, drive symlinks, registry (version + drive types), launching.
 - `src/main.cpp` — CLI: `frag run`, `frag prefix`, `--version`.
 - `tests/win32`, `tests/win16` — tiny Windows programs built with MinGW and Open Watcom.
-  They check Windows version, drive mapping and the message loop. `tests/run_test.sh`
+  They check Windows version, drive mapping, the message loop and installer-style
+  codec registration. `tests/run_test.sh`
   runs them through `frag` (under `xvfb-run` without a display).
 
 ## Build and test
@@ -42,6 +43,12 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   letter and a matching working directory; verified by `win32_hello`.
 - Win16 programs run under Ubuntu's Wine 9.0 in this environment (`win16_hello`).
 - `WINEPREFIX` must be absolute; `data_dir()` makes `FRAG_HOME` absolute.
+- Default `WINEDEBUG` for games is `fixme-all`, so `err:` lines (e.g. which DLL is
+  missing for c0000135) are shown.
+- Video codecs (Indeo 3/4/5, Cinepak, MS Video 1) default to `native,builtin`.
+  With Wine's builtin first, InstallShield fails with -119 registering a game's
+  bundled `ir50_32.dll` (Wine's builtin has no DllRegisterServer). Found on the
+  owner's first real game; covered by `win32_codec_register`.
 
 ## Roadmap
 

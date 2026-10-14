@@ -83,6 +83,10 @@ them only when you need them:
 # ddraw = native,builtin       # placed next to the game's exe
 ```
 
+FRAG prefers a game's own 1990s video codecs (Indeo, Cinepak, Microsoft Video 1)
+over Wine's built-in ones, falling back to Wine's when the game has none. Set
+e.g. `ir50_32 = builtin` under `[dlls]` to change that for one game.
+
 Windows paths are matched case-insensitively, like on Windows, so
 `D:\SETUP.EXE` finds `setup.exe`. The game starts in its exe's directory.
 

@@ -1,0 +1,8 @@
+# Installer-style codec registration (InstallShield error -119 regression test).
+[game]
+name = test-codec
+exe = D:\CODEC_INSTALL.EXE
+
+[drive D]
+path = @TEST_CODEC_CD@
+type = cdrom
