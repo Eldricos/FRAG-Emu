@@ -1,0 +1,10 @@
+# Win16 smoke test: hello16.exe on a hard-disk drive E:.
+[game]
+name = test-hello16
+exe = E:\HELLO16.EXE
+
+[wine]
+version = win98
+
+[drive E]
+path = @TEST_CD@
