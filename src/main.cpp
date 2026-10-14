@@ -22,7 +22,7 @@ void usage(std::ostream& out) {
            "\n"
            "options for run:\n"
            "  -v, --verbose            print the commands FRAG runs\n"
-           "  --wine-debug CHANNELS    set WINEDEBUG (default: -all), e.g. +relay,+seh\n";
+           "  --wine-debug CHANNELS    set WINEDEBUG (default: fixme-all), e.g. +loaddll,+relay\n";
 }
 
 }  // namespace

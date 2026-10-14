@@ -18,7 +18,8 @@ per-game compatibility fixes.
 
 - Linux on x86-64 (other hosts may come later)
 - Wine 9.0 or newer, including 32-bit support (on Debian/Ubuntu: `wine`, `wine32:i386`, `wine64`)
-- To build: CMake 3.16+, a C++17 compiler
+- To build: CMake 3.16+, a C++17 compiler, and Ninja
+  (on Debian/Ubuntu: `sudo apt install build-essential cmake ninja-build`)
 - Optional, for the test programs:
   - `i686-w64-mingw32-gcc` (Win32 tests; `gcc-mingw-w64-i686` on Debian/Ubuntu)
   - [Open Watcom v2](https://github.com/open-watcom/open-watcom-v2) (Win16 tests), with `WATCOM` set to its install directory
@@ -31,6 +32,10 @@ cmake -S . -B build -G Ninja
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
+
+Without Ninja, leave out `-G Ninja` and CMake uses Make instead. If a configure
+fails, delete the `build` folder before retrying: CMake caches the failed
+settings, and the same error repeats until the folder is removed.
 
 ## Usage
 
@@ -47,23 +52,35 @@ Prefixes live in `$FRAG_HOME`, else `$XDG_DATA_HOME/frag`, else `~/.local/share/
 
 ### frag.conf
 
+A minimal config for a game copied into a folder called `game` next to `frag.conf`:
+
 ```ini
 [game]
-name = Example Game            # required; also names the game's prefix
-exe  = D:\SETUP.EXE            # required; a Windows path on a mounted drive, or a host path
-args = -windowed               # optional
+name = Example Game            # also names the game's prefix
+exe  = D:\GAME.EXE             # the game's exe, on the drive below
+
+[drive D]
+path = game                    # folder with the game files, relative to this file
+```
+
+Only `name` and `exe` are required. All other settings are optional; uncomment
+them only when you need them:
+
+```ini
+[game]
+# args = -nointro              # extra command-line arguments for the game
 
 [wine]
-version = win98                # win31, win95, win98 or winme (default win98)
-binary  = /opt/wine/bin/wine   # optional; also settable with $FRAG_WINE
+# version = win95              # win31, win95, win98 or winme (default: win98)
+# binary  = /path/to/wine      # a specific Wine build (default: wine on your PATH,
+                               # or $FRAG_WINE if set)
 
-[drive D]                      # any letter except C (C: is the prefix's own drive)
-path  = cd                     # relative to this file
-type  = cdrom                  # hd (default) or cdrom
-label = EXAMPLE
+[drive D]
+# type  = cdrom                # hd (default) or cdrom; use cdrom for CD contents
+# label = GAMECD               # volume label, for games that check their CD
 
-[dlls]                         # optional Wine DLL overrides
-ddraw = native,builtin
+# [dlls]                       # Wine DLL overrides, e.g. to use a wrapper DLL
+# ddraw = native,builtin       # placed next to the game's exe
 ```
 
 Windows paths are matched case-insensitively, like on Windows, so
