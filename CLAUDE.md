@@ -204,8 +204,9 @@ compatibility database later.
   - Game then says "The Microsoft DirectX 5 drivers must be installed for Need For
     Speed III to run!". Trace: reads its "D3D Device" setting, DirectDrawCreate
     succeeds, then wined3d logs "Out of adapter memory" twice, then the box. Same
-    cause as LEGO Racers: VMware's GL driver reports 1 MB VRAM. Fixed by FRAG's
-    VideoMemorySize default; awaiting retest. (Vogons: 3dsetup offers only software
+    cause as LEGO Racers: VMware's GL driver reports 1 MB VRAM. FIXED by FRAG's
+    VideoMemorySize default; confirmed (game loads, menus work).
+  - Open: freezes while loading a race. (Vogons: 3dsetup offers only software
     rendering on modern systems; Lutris uses nGlide.)
 - **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"
@@ -215,7 +216,8 @@ compatibility database later.
   leaving the host at the game's resolution (now handled by ScreenModeGuard).
   In a 800x600 FRAG desktop it then said "Unable to create primary drawing surface
   error 8876017c" (DDERR_OUTOFVIDEOMEMORY) with "Out of adapter memory": the 1 MB
-  VRAM report. Fixed by FRAG's VideoMemorySize default; awaiting retest.
+  VRAM report. FIXED by FRAG's VideoMemorySize default; confirmed (game loads).
+  - Open: with the intro videos on, still "Unable to set message drain".
 - Owner's machine: Ubuntu 24.04 (X11 session) in VMware Workstation 15.5.7 on
   Windows 10, RTX 2080. Guest GL: renderer "SVGA3D; build: RELEASE; LLVM;", OpenGL
   3.3 core, Mesa 25.2.8; vmwgfx reports 3D, dx, SM4_1. That is VMware's host-GPU
