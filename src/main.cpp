@@ -2,9 +2,11 @@
 // frag: launches Windows 3.x/9x games from a per-game frag.conf.
 #include "config.h"
 #include "disc.h"
+#include "display.h"
 #include "midi.h"
 #include "wine.h"
 
+#include <csignal>
 #include <cstring>
 #include <exception>
 #include <iostream>
@@ -72,6 +74,13 @@ int main(int argc, char** argv) {
         frag::prepare_disc_drives(cfg, opts.verbose);
         prefix.prepare();
         frag::MidiSynth synth(cfg, prefix.path() / "fluidsynth.log", opts.verbose);
+        frag::ScreenModeGuard screen(opts.verbose);
+        // Ctrl+C or closing the terminal also reaches the game, which then exits;
+        // FRAG must outlive it to restore the screen mode and stop FluidSynth.
+        // A handler, not SIG_IGN: Wine would inherit an ignored signal.
+        struct sigaction sa = {};
+        sa.sa_handler = [](int) {};
+        for (int sig : {SIGINT, SIGTERM, SIGHUP}) sigaction(sig, &sa, nullptr);
         return prefix.run(opts);
     } catch (const std::exception& e) {
         std::cerr << "frag: " << e.what() << '\n';

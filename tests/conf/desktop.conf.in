@@ -1,0 +1,14 @@
+# [wine] desktop: the game sees a screen of that size (Wine's virtual desktop).
+[game]
+name = desktop
+exe = D:\SCREEN_SIZE.EXE
+args = 800x600
+
+[wine]
+desktop = 800x600
+
+[drive D]
+path = @HW_CD@
+
+[sound]
+midi_synth = off

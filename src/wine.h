@@ -5,6 +5,7 @@
 #include "config.h"
 
 #include <string>
+#include <sys/types.h>
 #include <vector>
 
 namespace frag {
@@ -50,6 +51,7 @@ private:
     void write_registry();
     void restart_wineserver() const;
     void load_win9x_hardware() const;
+    pid_t start_desktop() const;
     std::string autorun_exe(std::vector<std::string>& args) const;
     std::string exe_not_found_hint() const;
 };

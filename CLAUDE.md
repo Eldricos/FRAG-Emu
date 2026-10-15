@@ -20,6 +20,8 @@ per-game packaging and 9x-specific fixes around it. Games only, not general apps
 - `src/wine.*` — prefix creation, drive symlinks, registry (version + drive types), launching.
 - `src/disc.*` — CD images: ISO9660/Joliet reader for .iso, .cue/.bin, raw .bin/.img.
 - `src/midi.*` — starts/stops FluidSynth around a game run.
+- `src/display.*` — restores the host screen mode (xrandr) after a game.
+- `helpers/` — FRAG's own Windows helper programs, built into `build/dlls`.
 - `src/main.cpp` — CLI: `frag run`, `frag prefix`, `--version`.
 - `third_party/` — Wine-derived Windows DLLs FRAG builds and installs into prefixes.
 - `tests/win32`, `tests/win16` — tiny Windows programs built with MinGW and Open Watcom.
@@ -124,6 +126,23 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   args). A missing exe's error lists setup/install/autorun.exe found up to 3 levels
   deep. Both covered by `disc_image`.
 
+- Screen mode: `ScreenModeGuard` saves each connected output's mode from
+  `xrandr --query` and resets changed ones after the game. FRAG installs no-op
+  handlers for SIGINT/SIGTERM/SIGHUP during the run (not SIG_IGN, which Wine would
+  inherit) so Ctrl+C kills the game but FRAG survives to clean up. Xvfb can't
+  switch modes, so the restore itself is only verified on real desktops.
+- `[wine] desktop = WxH` (Wine virtual desktop). Registry alone (Explorer\Desktop +
+  Desktops\Default) did NOT work in FRAG prefixes: every Wine process creates the
+  "Default" desktop at startup if missing (win32u `winstation_init`, flags 0 =
+  ordinary, screen-sized), and only explorer creates it virtual
+  (DF_WINE_CREATE_DESKTOP). Stock prefixes win the race only because
+  winemenubuilder runs at boot; FRAG disables it. So `start_desktop()` runs
+  `wine explorer /desktop=Default,WxH` first, `AppDefaults\{start.exe,fragdesk.exe}
+  \Explorer\Desktop=FragProbe` keeps the launcher and the probe off "Default",
+  and `helpers/fragdesk.c` (OpenDesktop "Default" + SetThreadDesktop + metrics) is
+  polled until ready. Explorer is killed after the game. `win32_desktop` test,
+  5/5 runs pass (the race failed 2/3 without the start.exe key).
+
 ## Game notes
 
 Real games tested on the owner's machine (Ubuntu, Wine 9.0). Feed these into the
@@ -183,6 +202,11 @@ compatibility database later.
   afterwards (terminal had to be closed). Game: "Unable to set message drain"
   (DirectShow `IVideoWindow::put_MessageDrain`, i.e. the intro video's graph
   failed; Indeo video). Known workaround on Windows too: `args = -novideo`.
+  With it the game starts but shows only a black screen and had to be killed,
+  leaving the host at the game's resolution (now handled by ScreenModeGuard).
+- Owner's machine: Ubuntu in VMware with VMware Tools; `glxinfo -B` says
+  "Accelerated: no" although 3D acceleration is enabled in the VM settings. Likely
+  blocks every Direct3D game (NFS3, LEGO Racers). Investigating.
 
 ## Roadmap
 

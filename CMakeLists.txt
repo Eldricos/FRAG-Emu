@@ -13,6 +13,7 @@ add_executable(frag
   src/main.cpp
   src/config.cpp
   src/disc.cpp
+  src/display.cpp
   src/midi.cpp
   src/wine.cpp
 )
@@ -35,7 +36,17 @@ if(MINGW32_CC)
             ${MSADP32_SRC}/wine/debug.h
     COMMENT "Building msadp32.acm (MS ADPCM codec with Windows names)")
   add_custom_target(msadp32 ALL DEPENDS ${CMAKE_BINARY_DIR}/dlls/msadp32.acm)
-  install(FILES ${CMAKE_BINARY_DIR}/dlls/msadp32.acm DESTINATION share/frag/dlls)
+  # Helper programs FRAG runs inside prefixes.
+  add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/dlls/fragdesk.exe
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/dlls
+    COMMAND ${MINGW32_CC} -O2 -Wall -mwindows -o ${CMAKE_BINARY_DIR}/dlls/fragdesk.exe
+            ${CMAKE_CURRENT_SOURCE_DIR}/helpers/fragdesk.c
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/helpers/fragdesk.c
+    COMMENT "Building fragdesk.exe")
+  add_custom_target(fragdesk ALL DEPENDS ${CMAKE_BINARY_DIR}/dlls/fragdesk.exe)
+  install(FILES ${CMAKE_BINARY_DIR}/dlls/msadp32.acm ${CMAKE_BINARY_DIR}/dlls/fragdesk.exe
+          DESTINATION share/frag/dlls)
 else()
   message(WARNING "i686-w64-mingw32-gcc not found: building without msadp32.acm "
                   "(games that look for the MS ADPCM codec by name will have no sound)")
