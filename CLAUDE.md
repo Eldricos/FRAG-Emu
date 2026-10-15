@@ -110,7 +110,10 @@ compatibility database later.
   `C:\\Program Files (x86)\\Hasbro Interactive\\Classic Games\\ClassicBoard.exe`; uses
   Smacker video (smackw32), DirectDraw, WinG. Shows "Could not initialize sound: (1)"
   at start but has audio in game; intro video glitches for a few seconds.
-  Suspect MIDI (no host MIDI synth). InstallShield with 16-bit bootstrap
+  Suspect MIDI (no host MIDI synth). With FluidSynth running, `soundprobe` in a
+  fresh prefix on the owner's machine sees 5 MIDI devices (FluidSynth first, so the
+  unset mapper uses it), 2 wave devices, DirectSound ok, and both the MIDI tune and
+  the wave beep are audible. So host sound works; the game's error is still unexplained. InstallShield with 16-bit bootstrap
   (`Win16Mutex` timeout + ignored exceptions, harmless).
 
 ## Roadmap
