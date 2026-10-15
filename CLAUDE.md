@@ -117,8 +117,10 @@ compatibility database later.
   In the game's own prefix the probe also works. That prefix has `CurrentInstrument =
   FluidSynth`, but Wine names the port `FluidSynth - FluidSynth`; midimap logs "Registry
   glitch" and falls back to device 0 (FluidSynth here, so harmless). The probe now warns
-  about this. Next: `--wine-debug +loaddll` on the game to see which sound DLLs it uses
-  (Miles `mss32`, DirectMusic, ...). InstallShield with 16-bit bootstrap
+  about this. `+loaddll` shows no Miles or DirectMusic: only builtin winmm and dsound,
+  plus its own native smackw32. Next: relay limited to winmm/dsound/smackw32 and
+  `user32.MessageBoxA` (`RelayInclude` in `HKCU\Software\Wine\Debug`) to find the
+  call that fails just before the error box. InstallShield with 16-bit bootstrap
   (`Win16Mutex` timeout + ignored exceptions, harmless).
 
 ## Roadmap
