@@ -65,6 +65,49 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   changing settings. Labels come from `.windows-label` in the drive folder.
   `win32_hello` checks CD-ROM type + label on a fresh prefix.
 
+- winemenubuilder is disabled (`winemenubuilder.exe=d` in every Wine process, and
+  its RunServices entry removed) so installers' shortcuts don't land in the host's
+  application menu. Verified with a test program that saves a Start-menu `.lnk`.
+
+- Z: (host filesystem) is hidden by default: `sync_drives` removes `dosdevices/z:`
+  every run unless `[wine] host_drive = yes`. Classic Board Games scanned drive
+  letters, hit Z:, overflowed a path buffer and crashed (return address became
+  "11\\X"). Consequences: the settings .reg is imported from `C:\\windows\\` (host
+  paths don't resolve without Z:), and a host-path `exe` is converted to its
+  drive's Windows path (`to_windows_path`) or rejected. `win32_hello` checks Z: is hidden.
+
+## Game notes
+
+Real games tested on the owner's machine (Ubuntu, Wine 9.0). Feed these into the
+compatibility database later.
+
+- **LEGO Stunt Rally (2000)** — installer blocked; parked. Matches Wine bug 50218
+  ("installer requests Indeo codec", unconfirmed, still present in Wine 7).
+  - Needs `type = cdrom` (otherwise "insert the CD").
+  - InstallShield 5 with a 16-bit bootstrap (`_isetup.exe`, `_SETUP.DLL`) -> 32-bit
+    engine (`_INS*._MP`). Win16 support works; the engine raises repeated access
+    violations in its window procs that Wine ignores.
+  - Silently runs `D:\DxMedia\DXMEDIA.EXE` + `DXM6PTCH.EXE` (DirectX Media 6), which
+    installs native danim, qcut, qdv, qdvd, dxtmsft(3), mpg2splt.ax, tm20dec.ax, LMRT
+    over Wine's DLLs. Redistributable installers like this should probably be
+    skipped or sandboxed by FRAG.
+  - Indeo file group: loads native `Ivfsrc.ax` (Indeo source filter), unloads it at
+    once, then fails with -119 (self-registration). No Wine err line; cause unknown.
+    Wine's builtin ir50_32 lacks DllRegisterServer (fixed by native,builtin default),
+    but this second failure remains.
+  - Known later problems per WineHQ: black 3D scene (bug 25486), crash entering
+    championship with winegstreamer (bug 48103).
+- **Star Trek: Deep Space Nine: Dominion Wars (2001, US release)** — installs; game
+  says "no CD drive found". US release has no SafeDisc/SecuROM (EU has SecuROM).
+  Pending: retest with `type = cdrom` and Z: hidden.
+- **Classic Board Games (Hasbro)** — WORKS with Z: hidden (crashed with a stack
+  overflow from a path string when Z: was visible). Installs exe to
+  `C:\\Program Files (x86)\\Hasbro Interactive\\Classic Games\\ClassicBoard.exe`; uses
+  Smacker video (smackw32), DirectDraw, WinG. Shows "Could not initialize sound: (1)"
+  at start but has audio in game; intro video glitches for a few seconds.
+  Suspect MIDI (no host MIDI synth). InstallShield with 16-bit bootstrap
+  (`Win16Mutex` timeout + ignored exceptions, harmless).
+
 ## Roadmap
 
 1. ~~Skeleton: launcher, per-game prefix, drive mounting, Win16 + Win32 smoke tests.~~
@@ -73,3 +116,7 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
 4. Game-focused tests: DirectDraw 8-bit palette mode, DirectSound, joystick, timing.
 5. Compatibility database: known-good settings per game, shipped with FRAG.
 6. Win9x-specific fixes in a Wine fork, driven by real games that break.
+7. Handle bundled redistributable installers (DirectX, DirectX Media, Indeo) that
+   overwrite Wine DLLs: detect and skip, or install into a throwaway layer.
+8. MIDI: bundle or configure a software synth (FluidSynth + General MIDI SoundFont)
+   so games' MIDI music works without host setup.

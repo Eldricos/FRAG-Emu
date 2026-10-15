@@ -26,6 +26,7 @@ struct GameConfig {
     std::vector<std::string> args;     // [game] args, split on whitespace
     std::string windows_version = "win98";  // [wine] version: win31, win95, win98, winme, ...
     std::string wine_binary;           // [wine] binary, empty = "wine" from PATH or $FRAG_WINE
+    bool host_drive = false;           // [wine] host_drive: show the host filesystem as Z:
     std::vector<Drive> drives;         // [drive X] sections
     std::map<std::string, std::string> dll_overrides;  // [dlls] name = native,builtin
 };

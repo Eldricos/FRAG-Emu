@@ -89,6 +89,12 @@ GameConfig load_config(const fs::path& path) {
         } else if (section == "wine") {
             if (key == "version") cfg.windows_version = lower(value);
             else if (key == "binary") cfg.wine_binary = value;
+            else if (key == "host_drive") {
+                std::string v = lower(value);
+                if (v == "yes" || v == "true" || v == "1") cfg.host_drive = true;
+                else if (v == "no" || v == "false" || v == "0") cfg.host_drive = false;
+                else fail(file, lineno, "host_drive must be yes or no");
+            }
             else fail(file, lineno, "unknown key '" + key + "' in [wine]");
         } else if (section == "dlls") {
             cfg.dll_overrides[lower(key)] = lower(value);
