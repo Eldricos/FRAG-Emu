@@ -1,0 +1,8 @@
+# Sound diagnostic: lists MIDI/wave devices and plays a short tune and a beep.
+# Run: frag run build/tests/soundprobe.conf
+[game]
+name = soundprobe
+exe = D:\SOUNDPROBE.EXE
+
+[drive D]
+path = @SOUNDPROBE_CD@
