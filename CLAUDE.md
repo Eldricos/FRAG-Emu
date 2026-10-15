@@ -97,9 +97,14 @@ compatibility database later.
     but this second failure remains.
   - Known later problems per WineHQ: black 3D scene (bug 25486), crash entering
     championship with winegstreamer (bug 48103).
-- **Star Trek: Deep Space Nine: Dominion Wars (2001, US release)** — installs; game
-  says "no CD drive found". US release has no SafeDisc/SecuROM (EU has SecuROM).
-  Pending: retest with `type = cdrom` and Z: hidden.
+- **Star Trek: Deep Space Nine: Dominion Wars (2001, US release)** — BLOCKED by
+  copy protection; parked. Installs fine, then "no CD drive found". A relay trace
+  shows ds9dw.exe reading itself and writing `SIntf16.dll`, `SIntf32.dll`,
+  `SIntfNT.dll` to system32: the file set of newer SecuROM (old SecuROM used
+  CMS16/CMS_95/CMS_NT). SecuROM checks physical disc properties, so a folder copy
+  can never pass, and it generally fails under Wine even with the disc. Only an
+  official unprotected exe (publisher patch / re-release) would help. Config used
+  `type = cdrom`, label `Dominion_Wars` (from the disc).
 - **Classic Board Games (Hasbro)** — WORKS with Z: hidden (crashed with a stack
   overflow from a path string when Z: was visible). Installs exe to
   `C:\\Program Files (x86)\\Hasbro Interactive\\Classic Games\\ClassicBoard.exe`; uses
