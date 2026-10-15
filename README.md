@@ -93,6 +93,10 @@ FRAG prefers a game's own 1990s video codecs (Indeo, Cinepak, Microsoft Video 1)
 over Wine's built-in ones, falling back to Wine's when the game has none. Set
 e.g. `ir50_32 = builtin` under `[dlls]` to change that for one game.
 
+Games stay self-contained: shortcuts made by installers are not added to your
+desktop's application menu, and your computer's real CD/DVD and USB drives are
+hidden from the game. Start games with `frag run`.
+
 Windows paths are matched case-insensitively, like on Windows, so
 `D:\SETUP.EXE` finds `setup.exe`. The game starts in its exe's directory.
 

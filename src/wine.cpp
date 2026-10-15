@@ -74,6 +74,12 @@ int run_process(const std::vector<std::string>& argv,
 // then has its letter's folder link deleted, which removed FRAG's own D: mapping on
 // every run after the first. Games only get the drives frag.conf defines, so Wine
 // is pointed at a bus address that doesn't exist.
+// Disabled for every Wine process FRAG starts:
+// - mscoree, mshtml: the Mono/Gecko install prompts; 9x-era games never need them.
+// - winemenubuilder: copies installers' shortcuts into the host desktop's
+//   application menu. Games stay self-contained and are started through FRAG.
+const char* const kBaseOverrides = "mscoree,mshtml=;winemenubuilder.exe=d";
+
 const std::pair<std::string, std::string> kNoHostDrives{"DBUS_SYSTEM_BUS_ADDRESS",
                                                         "unix:path=/nonexistent/frag-no-host-drives"};
 
@@ -134,11 +140,10 @@ void WinePrefix::check_wine() const {
 int WinePrefix::wine_cmd(const std::vector<std::string>& args, const std::string& debug) const {
     std::vector<std::string> argv{wine_};
     argv.insert(argv.end(), args.begin(), args.end());
-    // Disable the Mono/Gecko install prompts; 9x-era games never need them.
     return run_process(argv,
                        {{"WINEPREFIX", path_.string()},
                         {"WINEDEBUG", debug},
-                        {"WINEDLLOVERRIDES", "mscoree,mshtml="},
+                        {"WINEDLLOVERRIDES", kBaseOverrides},
                         kNoHostDrives},
                        verbose_);
 }
@@ -193,12 +198,16 @@ void WinePrefix::sync_drives() {
 void WinePrefix::write_registry() {
     std::ostringstream out;
     out << "REGEDIT4\n"
-        << "; frag settings v2 (64-bit registry view)\n\n"
+        << "; frag settings v3 (64-bit registry view)\n\n"
         << "[HKEY_CURRENT_USER\\Software\\Wine]\n"
         << "\"Version\"=\"" << cfg_.windows_version << "\"\n\n"
         << "[HKEY_LOCAL_MACHINE\\Software\\Wine\\Drives]\n";
     for (const auto& d : cfg_.drives)
         out << '"' << static_cast<char>(std::tolower(d.letter)) << ":\"=\"" << d.type << "\"\n";
+    // winemenubuilder is disabled (see kBaseOverrides); drop the startup entry that
+    // would otherwise log an error every time Wine starts.
+    out << "\n[HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\RunServices]\n"
+        << "\"winemenubuilder\"=-\n";
     // Forget host drives Wine assigned to our letters in older prefixes.
     out << "\n[HKEY_LOCAL_MACHINE\\System\\MountedDevices]\n";
     for (const auto& d : cfg_.drives) out << "\"\\\\DosDevices\\\\" << d.letter << ":\"=-\n";
@@ -291,7 +300,7 @@ int WinePrefix::run(const RunOptions& opts) {
         {"msvidc32", "native,builtin"},  // Microsoft Video 1
     };
     for (const auto& [dll, mode] : cfg_.dll_overrides) dlls[dll] = mode;
-    std::string overrides = "mscoree,mshtml=";
+    std::string overrides = kBaseOverrides;
     for (const auto& [dll, mode] : dlls) overrides += ";" + dll + "=" + mode;
 
     std::vector<std::string> argv{wine_, exe};

@@ -65,6 +65,10 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   changing settings. Labels come from `.windows-label` in the drive folder.
   `win32_hello` checks CD-ROM type + label on a fresh prefix.
 
+- winemenubuilder is disabled (`winemenubuilder.exe=d` in every Wine process, and
+  its RunServices entry removed) so installers' shortcuts don't land in the host's
+  application menu. Verified with a test program that saves a Start-menu `.lnk`.
+
 ## Game notes
 
 Real games tested on the owner's machine (Ubuntu, Wine 9.0). Feed these into the
@@ -86,6 +90,10 @@ compatibility database later.
     but this second failure remains.
   - Known later problems per WineHQ: black 3D scene (bug 25486), crash entering
     championship with winegstreamer (bug 48103).
+- **Star Trek: Deep Space Nine: Dominion Wars (2001)** — installs; launch not yet tested.
+  Only harmless installer noise (`CoReleaseMarshalData`, menubuilder icons).
+- **Classic Board Games (Hasbro)** — installs; launch not yet tested. InstallShield
+  with 16-bit bootstrap again (`Win16Mutex` timeout + ignored exceptions, harmless).
 
 ## Roadmap
 
