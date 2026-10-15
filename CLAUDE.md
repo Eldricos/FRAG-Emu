@@ -109,6 +109,8 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   Not yet: CD audio (Wine's mcicda needs real CD ioctls), multi-session, .mdf/.nrg/.ccd.
   `disc_image` test builds an ISO with genisoimage (skips if missing) and a
   .cue/.bin with python3.
+  Confirmed on the owner's machine: Classic Board Games runs from a `dd`-made .iso
+  with no label setting.
 
 ## Game notes
 
@@ -152,6 +154,7 @@ compatibility database later.
   - Music needs a MIDI synth; FRAG starts FluidSynth itself (confirmed working).
     Their prefix has `CurrentInstrument = FluidSynth`, but Wine names the port
     `FluidSynth - FluidSynth`; midimap falls back to device 0, harmless here.
+  - Runs from an .iso of its disc (`[drive D] image = ...`, label/serial automatic).
   - Open: intro video glitches for a few seconds.
 
 ## Roadmap
