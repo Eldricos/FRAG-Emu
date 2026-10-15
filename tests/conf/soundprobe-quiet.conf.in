@@ -1,0 +1,9 @@
+# Sound diagnostic: lists MIDI/wave devices and (quiet: no playback, for CI).
+# Run: frag run build/tests/soundprobe.conf
+[game]
+name = soundprobe
+exe = D:\SOUNDPROBE.EXE
+args = --quiet
+
+[drive D]
+path = @SOUNDPROBE_CD@

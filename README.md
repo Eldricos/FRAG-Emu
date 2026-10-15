@@ -104,6 +104,16 @@ application menu. Start games with `frag run`.
 Windows paths are matched case-insensitively, like on Windows, so
 `D:\SETUP.EXE` finds `setup.exe`. The game starts in its exe's directory.
 
+## Diagnosing sound
+
+`build/tests/soundprobe.conf` runs a small test program (built when the MinGW
+cross-compiler is installed) that lists the wave and MIDI devices Wine sees,
+shows where MIDI music is routed, and plays a short tune and a beep:
+
+```sh
+frag run build/tests/soundprobe.conf
+```
+
 ## License
 
 GPL-3.0-or-later. See [LICENSE](LICENSE). Code taken from Wine keeps its

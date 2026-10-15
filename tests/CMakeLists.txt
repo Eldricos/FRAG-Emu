@@ -26,6 +26,23 @@ if(MINGW32_CC)
                    ${CMAKE_CURRENT_BINARY_DIR}/stale-drive/hello32.conf)
   set_tests_properties(win32_stale_host_drive PROPERTIES TIMEOUT 300)
 
+  # Sound probe: a diagnostic users run on their own machine to see what games see.
+  #   frag run build/tests/soundprobe.conf
+  set(SOUNDPROBE_CD ${CMAKE_CURRENT_BINARY_DIR}/soundprobe-cd)
+  file(MAKE_DIRECTORY ${SOUNDPROBE_CD})
+  add_custom_command(
+    OUTPUT ${SOUNDPROBE_CD}/SOUNDPROBE.EXE
+    COMMAND ${MINGW32_CC} -O2 -Wall -o ${SOUNDPROBE_CD}/SOUNDPROBE.EXE
+            ${CMAKE_CURRENT_SOURCE_DIR}/win32/soundprobe.c -lwinmm -ldsound
+    DEPENDS win32/soundprobe.c
+    COMMENT "Building sound probe")
+  add_custom_target(soundprobe ALL DEPENDS ${SOUNDPROBE_CD}/SOUNDPROBE.EXE)
+  configure_file(conf/soundprobe.conf.in ${CMAKE_CURRENT_BINARY_DIR}/soundprobe.conf @ONLY)
+  configure_file(conf/soundprobe-quiet.conf.in ${CMAKE_CURRENT_BINARY_DIR}/soundprobe-quiet.conf @ONLY)
+  add_test(NAME win32_soundprobe_runs
+           COMMAND ${RUN_TEST} $<TARGET_FILE:frag> ${CMAKE_CURRENT_BINARY_DIR}/soundprobe-quiet.conf)
+  set_tests_properties(win32_soundprobe_runs PROPERTIES TIMEOUT 300)
+
   # Codec self-registration: a separate "CD" so the codec DLL can't shadow other tests.
   set(TEST_CODEC_CD ${CMAKE_CURRENT_BINARY_DIR}/codec-cd)
   file(MAKE_DIRECTORY ${TEST_CODEC_CD})
