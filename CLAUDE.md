@@ -49,6 +49,21 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   With Wine's builtin first, InstallShield fails with -119 registering a game's
   bundled `ir50_32.dll` (Wine's builtin has no DllRegisterServer). Found on the
   owner's first real game; covered by `win32_codec_register`.
+  Some installers still keep Wine's codec (it has no version info) and then fail;
+  workaround: delete `system32/ir50_32.dll` from the prefix before installing.
+  TODO: per-game option to replace Wine's codecs.
+- Host drives: Wine's mountmgr gets host CD/USB drives from UDisks over D-Bus and
+  claims letters from D:. With no disc it deletes the `d:` folder link, so every
+  run after the first failed with `wine: failed to open "D:\SETUP.EXE": c0000135`
+  (that status means the exe file wasn't found). FRAG sets
+  `DBUS_SYSTEM_BUS_ADDRESS` to a nonexistent socket for all Wine processes, removes
+  `x::` device links and `MountedDevices` entries for its letters.
+  `win32_stale_host_drive` checks the repair; the D-Bus part needs a real desktop to verify.
+- Drive types must be written to the 64-bit registry view (`reg import ... /reg:64`);
+  `wine regedit` is 32-bit and lands in Wow6432Node, where mountmgr ignores it.
+  mountmgr reads them only at startup, so FRAG kills the prefix's wineserver after
+  changing settings. Labels come from `.windows-label` in the drive folder.
+  `win32_hello` checks CD-ROM type + label on a fresh prefix.
 
 ## Roadmap
 

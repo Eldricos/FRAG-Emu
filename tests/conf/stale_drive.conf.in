@@ -1,0 +1,13 @@
+# Stale host-drive test: hello32.exe on D:, after Wine gave D: to a host CD drive.
+[game]
+name = test-stale-drive
+exe = D:\HELLO32.EXE
+args = D FRAGTEST
+
+[wine]
+version = win98
+
+[drive D]
+path = @TEST_CD@
+type = cdrom
+label = FRAGTEST

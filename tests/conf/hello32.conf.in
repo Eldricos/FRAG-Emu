@@ -2,7 +2,7 @@
 [game]
 name = test-hello32
 exe = D:\HELLO32.EXE
-args = D
+args = D FRAGTEST
 
 [wine]
 version = win98

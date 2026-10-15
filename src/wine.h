@@ -43,6 +43,7 @@ private:
     int wine_cmd(const std::vector<std::string>& args, const std::string& debug = "-all") const;
     void sync_drives();
     void write_registry();
+    void restart_wineserver() const;
 };
 
 // Directory holding all FRAG data: $FRAG_HOME, else $XDG_DATA_HOME/frag, else ~/.local/share/frag.

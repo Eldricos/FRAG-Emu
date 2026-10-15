@@ -77,11 +77,17 @@ them only when you need them:
 
 [drive D]
 # type  = cdrom                # hd (default) or cdrom; use cdrom for CD contents
-# label = GAMECD               # volume label, for games that check their CD
+# label = GAMECD               # the CD's volume label, for games that check it
+                               # (stored as .windows-label in the drive's folder)
 
 # [dlls]                       # Wine DLL overrides, e.g. to use a wrapper DLL
 # ddraw = native,builtin       # placed next to the game's exe
 ```
+
+Most games from this era refuse to install or start unless their files are on a
+CD-ROM drive, often with the original disc's volume label. For a folder copied
+from a game CD, set `type = cdrom` and `label` to the disc's label. On Linux,
+`lsblk -o NAME,LABEL` shows the label while the disc is inserted.
 
 FRAG prefers a game's own 1990s video codecs (Indeo, Cinepak, Microsoft Video 1)
 over Wine's built-in ones, falling back to Wine's when the game has none. Set
