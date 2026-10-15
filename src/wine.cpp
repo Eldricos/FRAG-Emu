@@ -8,8 +8,10 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 
 #include <sys/wait.h>
@@ -74,6 +76,18 @@ int run_process(const std::vector<std::string>& argv,
 // is pointed at a bus address that doesn't exist.
 const std::pair<std::string, std::string> kNoHostDrives{"DBUS_SYSTEM_BUS_ADDRESS",
                                                         "unix:path=/nonexistent/frag-no-host-drives"};
+
+// Writes only when the content differs, so unchanged files keep their timestamps.
+// Returns whether the file was written.
+bool write_if_changed(const fs::path& file, const std::string& content) {
+    if (std::ifstream in(file, std::ios::binary); in) {
+        std::string old((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        if (old == content) return false;
+    }
+    std::ofstream out(file, std::ios::binary | std::ios::trunc);
+    if (!(out << content)) throw std::runtime_error("cannot write " + file.string());
+    return true;
+}
 
 }  // namespace
 
@@ -161,6 +175,9 @@ void WinePrefix::sync_drives() {
         fs::create_directory_symlink(d.path, link);
         // A "d::" device link means Wine gave this letter to a host drive earlier.
         fs::remove(dosdevices / (std::string(1, l) + "::"), ec);
+        // Wine reads a folder drive's volume label from .windows-label in its root.
+        // Games check it to find their CD.
+        if (!d.label.empty()) write_if_changed(d.path / ".windows-label", d.label);
     }
     for (char l : previous)
         if (!current.count(l)) {
@@ -172,26 +189,41 @@ void WinePrefix::sync_drives() {
     for (char l : current) out << l << '\n';
 }
 
-// Applies the Windows version and drive types with a single regedit call.
+// Applies the Windows version and drive types with a single registry import.
 void WinePrefix::write_registry() {
+    std::ostringstream out;
+    out << "REGEDIT4\n"
+        << "; frag settings v2 (64-bit registry view)\n\n"
+        << "[HKEY_CURRENT_USER\\Software\\Wine]\n"
+        << "\"Version\"=\"" << cfg_.windows_version << "\"\n\n"
+        << "[HKEY_LOCAL_MACHINE\\Software\\Wine\\Drives]\n";
+    for (const auto& d : cfg_.drives)
+        out << '"' << static_cast<char>(std::tolower(d.letter)) << ":\"=\"" << d.type << "\"\n";
+    // Forget host drives Wine assigned to our letters in older prefixes.
+    out << "\n[HKEY_LOCAL_MACHINE\\System\\MountedDevices]\n";
+    for (const auto& d : cfg_.drives) out << "\"\\\\DosDevices\\\\" << d.letter << ":\"=-\n";
+    out << '\n';
+
     const fs::path reg = path_ / "frag-settings.reg";
-    {
-        std::ofstream out(reg, std::ios::trunc);
-        out << "REGEDIT4\n\n"
-            << "[HKEY_CURRENT_USER\\Software\\Wine]\n"
-            << "\"Version\"=\"" << cfg_.windows_version << "\"\n\n"
-            << "[HKEY_LOCAL_MACHINE\\Software\\Wine\\Drives]\n";
-        for (const auto& d : cfg_.drives)
-            out << '"' << static_cast<char>(std::tolower(d.letter)) << ":\"=\""
-                << d.type << "\"\n";
-        // Forget host drives Wine assigned to our letters in older prefixes.
-        out << "\n[HKEY_LOCAL_MACHINE\\System\\MountedDevices]\n";
-        for (const auto& d : cfg_.drives)
-            out << "\"\\\\DosDevices\\\\" << d.letter << ":\"=-\n";
-        out << '\n';
+    if (!write_if_changed(reg, out.str())) return;
+
+    // /reg:64 matters: `wine regedit` is a 32-bit program, so its HKLM\Software
+    // writes land in Wow6432Node, where the mount manager never reads drive types.
+    if (int rc = wine_cmd({"reg", "import", reg.string(), "/reg:64"}); rc != 0) {
+        fs::remove(reg);  // retry the import next run
+        throw std::runtime_error("registry import failed with exit code " + std::to_string(rc));
     }
-    if (int rc = wine_cmd({"regedit", "/S", reg.string()}); rc != 0)
-        throw std::runtime_error("regedit failed with exit code " + std::to_string(rc));
+    // The mount manager only reads drive types when it starts, and wineboot or an
+    // earlier run may already have started it. Stop this prefix's wineserver so the
+    // game starts with a fresh one.
+    restart_wineserver();
+}
+
+void WinePrefix::restart_wineserver() const {
+    fs::path server = "wineserver";
+    if (wine_.find('/') != std::string::npos) server = fs::path(wine_).parent_path() / "wineserver";
+    run_process({server.string(), "-k"}, {{"WINEPREFIX", path_.string()}}, verbose_);
+    run_process({server.string(), "-w"}, {{"WINEPREFIX", path_.string()}}, verbose_);
 }
 
 fs::path WinePrefix::to_host_path(const std::string& windows_path) const {

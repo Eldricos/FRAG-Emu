@@ -59,6 +59,11 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   `DBUS_SYSTEM_BUS_ADDRESS` to a nonexistent socket for all Wine processes, removes
   `x::` device links and `MountedDevices` entries for its letters.
   `win32_stale_host_drive` checks the repair; the D-Bus part needs a real desktop to verify.
+- Drive types must be written to the 64-bit registry view (`reg import ... /reg:64`);
+  `wine regedit` is 32-bit and lands in Wow6432Node, where mountmgr ignores it.
+  mountmgr reads them only at startup, so FRAG kills the prefix's wineserver after
+  changing settings. Labels come from `.windows-label` in the drive folder.
+  `win32_hello` checks CD-ROM type + label on a fresh prefix.
 
 ## Roadmap
 
