@@ -169,10 +169,20 @@ compatibility database later.
   - Runs from an .iso of its disc (`[drive D] image = ...`, label/serial automatic).
   - Open: intro video glitches for a few seconds.
 
-- **Need for Speed III: Hot Pursuit (1998)** — in progress. Installer
-  (`setup.exe` in a subfolder, lower case) showed "Could not get 'HardWareKey' value"
-  from `3dsetup` (Wine bug 7115: Win9x mode, empty HKEY_DYN_DATA). FRAG now fills
-  in a display device; awaiting retest on the owner's machine.
+- **Need for Speed III: Hot Pursuit (1998)** — in progress.
+  - Installer (`setup.exe` in a subfolder, lower case) showed "Could not get
+    'HardWareKey' value" from `3dsetup` (Wine bug 7115: Win9x mode, empty
+    HKEY_DYN_DATA). FIXED by FRAG's Win9x hardware entries; confirmed (installs).
+  - Game then says "The Microsoft DirectX 5 drivers must be installed for Need For
+    Speed III to run!", also after running the disc's DirectX installer. Cause
+    unknown: candidates are a DirectX version check (registry, ddraw.dll version
+    info) or Direct3D device enumeration. Owner's machine is a VM, so 3D
+    acceleration may be missing. Vogons: 3dsetup offers only software rendering
+    on modern systems; Lutris uses nGlide (Glide wrapper).
+- **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
+  afterwards (terminal had to be closed). Game: "Unable to set message drain"
+  (DirectShow `IVideoWindow::put_MessageDrain`, i.e. the intro video's graph
+  failed; Indeo video). Known workaround on Windows too: `args = -novideo`.
 
 ## Roadmap
 
