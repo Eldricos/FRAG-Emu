@@ -1,0 +1,7 @@
+# MS ADPCM codec reachable under its Windows name (FRAG's msadp32.acm).
+[game]
+name = acm_adpcm
+exe = D:\ACM_ADPCM.EXE
+
+[drive D]
+path = @ACM_CD@

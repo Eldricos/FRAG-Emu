@@ -97,6 +97,29 @@ bool write_if_changed(const fs::path& file, const std::string& content) {
     return true;
 }
 
+// Reads a whole file; empty if it can't be read.
+std::string read_file(const fs::path& file) {
+    std::ifstream in(file, std::ios::binary);
+    return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+}
+
+// Where FRAG's own Windows DLLs are: build/dlls next to a built frag, or
+// share/frag/dlls for an installed one. Empty if neither exists.
+fs::path dll_dir() {
+    std::error_code ec;
+    const fs::path bin = fs::read_symlink("/proc/self/exe", ec).parent_path();
+    if (ec) return {};
+    for (const fs::path& dir : {bin / "dlls", bin.parent_path() / "share" / "frag" / "dlls"})
+        if (fs::is_directory(dir)) return dir;
+    return {};
+}
+
+// DLLs FRAG puts into every prefix in place of Wine's. Each is loaded through a
+// native,builtin override in run().
+// - msadp32.acm: Wine's MS ADPCM codec under its Windows name, "Microsoft ADPCM".
+//   Classic Board Games looks it up by that name and has no sound without it.
+const char* const kFragDlls[] = {"msadp32.acm"};
+
 }  // namespace
 
 fs::path data_dir() {
@@ -162,7 +185,27 @@ void WinePrefix::prepare() {
             throw std::runtime_error("wineboot failed with exit code " + std::to_string(rc));
     }
     sync_drives();
+    install_dlls();
     write_registry();
+}
+
+// Copies FRAG's DLLs into the folder Wine loads 32-bit system DLLs from: syswow64 in
+// a 64-bit prefix, system32 in a 32-bit one. Wine's placeholders there are replaced;
+// a Wine upgrade may restore them, so this is checked on every run.
+void WinePrefix::install_dlls() {
+    const fs::path src = dll_dir();
+    const fs::path windows = path_ / "drive_c" / "windows";
+    const fs::path dest = fs::is_directory(windows / "syswow64") ? windows / "syswow64" : windows / "system32";
+    for (const char* name : kFragDlls) {
+        const std::string data = src.empty() ? std::string() : read_file(src / name);
+        if (data.empty()) {
+            std::cerr << "frag: warning: " << name << " not found next to frag; build it with the "
+                      << "MinGW cross-compiler (i686-w64-mingw32-gcc) installed\n";
+            continue;
+        }
+        if (write_if_changed(dest / name, data) && verbose_)
+            std::cerr << "frag: installed " << name << " into " << dest << '\n';
+    }
 }
 
 // Points dosdevices/<x>: at each configured drive. Letters FRAG created on an earlier
@@ -343,6 +386,8 @@ int WinePrefix::run(const RunOptions& opts) {
         {"iccvid", "native,builtin"},    // Cinepak
         {"msvidc32", "native,builtin"},  // Microsoft Video 1
     };
+    // FRAG's own replacements for Wine DLLs (see install_dlls).
+    for (const char* name : kFragDlls) dlls[name] = "native,builtin";
     for (const auto& [dll, mode] : cfg_.dll_overrides) dlls[dll] = mode;
     std::string overrides = kBaseOverrides;
     for (const auto& [dll, mode] : dlls) overrides += ";" + dll + "=" + mode;

@@ -19,6 +19,7 @@ per-game packaging and 9x-specific fixes around it. Games only, not general apps
 - `src/config.*` — `frag.conf` parser (`[game]`, `[wine]`, `[drive X]`, `[dlls]`).
 - `src/wine.*` — prefix creation, drive symlinks, registry (version + drive types), launching.
 - `src/main.cpp` — CLI: `frag run`, `frag prefix`, `--version`.
+- `third_party/` — Wine-derived Windows DLLs FRAG builds and installs into prefixes.
 - `tests/win32`, `tests/win16` — tiny Windows programs built with MinGW and Open Watcom.
   They check Windows version, drive mapping, the message loop and installer-style
   codec registration. `tests/run_test.sh`
@@ -76,6 +77,14 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   paths don't resolve without Z:), and a host-path `exe` is converted to its
   drive's Windows path (`to_windows_path`) or rejected. `win32_hello` checks Z: is hidden.
 
+- FRAG's own DLLs: `third_party/` holds Wine-derived DLL sources that FRAG builds
+  with MinGW into `build/dlls` (installed: `share/frag/dlls`; found via
+  `/proc/self/exe`). `install_dlls` copies each into the prefix's `syswow64` (or
+  `system32` in a 32-bit prefix) on every run, and `run()` gives it a `native,builtin`
+  override. Currently only `msadp32.acm` (Wine's MS ADPCM codec reporting Windows'
+  name "Microsoft ADPCM"), checked by `win32_acm_adpcm`. Without MinGW, frag warns and
+  runs without them.
+
 ## Game notes
 
 Real games tested on the owner's machine (Ubuntu, Wine 9.0). Feed these into the
@@ -129,8 +138,9 @@ compatibility database later.
   and makes no other ACM call before the error, so it matches driver names. Windows'
   msadp32 is "Microsoft ADPCM" / "Microsoft ADPCM CODEC"; Wine's (9.0 and current
   master) is "MS-ADPCM" / "Wine MS ADPCM converter" (soundprobe now lists ACM drivers).
-  Wine's IMA driver already uses the Windows name. Fix: rename in Wine's msadp32
-  (upstream patch), or ship a renamed build of it as a native `msadp32.acm`. InstallShield with 16-bit bootstrap
+  Wine's IMA driver already uses the Windows name. FIXED in FRAG by shipping a renamed
+  build of Wine's driver (see "FRAG's own DLLs"); awaiting confirmation on the owner's
+  machine that the error is gone and music plays. Could also go upstream to Wine. InstallShield with 16-bit bootstrap
   (`Win16Mutex` timeout + ignored exceptions, harmless).
 
 ## Roadmap

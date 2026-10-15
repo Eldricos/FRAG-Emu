@@ -26,6 +26,21 @@ if(MINGW32_CC)
                    ${CMAKE_CURRENT_BINARY_DIR}/stale-drive/hello32.conf)
   set_tests_properties(win32_stale_host_drive PROPERTIES TIMEOUT 300)
 
+  # Games find the MS ADPCM codec by its Windows name; FRAG ships a renamed copy.
+  set(ACM_CD ${CMAKE_CURRENT_BINARY_DIR}/acm-cd)
+  file(MAKE_DIRECTORY ${ACM_CD})
+  add_custom_command(
+    OUTPUT ${ACM_CD}/ACM_ADPCM.EXE
+    COMMAND ${MINGW32_CC} -O2 -Wall -o ${ACM_CD}/ACM_ADPCM.EXE
+            ${CMAKE_CURRENT_SOURCE_DIR}/win32/acm_adpcm.c -lmsacm32 -lwinmm
+    DEPENDS win32/acm_adpcm.c
+    COMMENT "Building Win32 test program acm_adpcm.exe")
+  add_custom_target(test_acm_adpcm ALL DEPENDS ${ACM_CD}/ACM_ADPCM.EXE)
+  configure_file(conf/acm_adpcm.conf.in ${CMAKE_CURRENT_BINARY_DIR}/acm_adpcm.conf @ONLY)
+  add_test(NAME win32_acm_adpcm
+           COMMAND ${RUN_TEST} $<TARGET_FILE:frag> ${CMAKE_CURRENT_BINARY_DIR}/acm_adpcm.conf)
+  set_tests_properties(win32_acm_adpcm PROPERTIES TIMEOUT 300)
+
   # Sound probe: a diagnostic users run on their own machine to see what games see.
   #   frag run build/tests/soundprobe.conf
   set(SOUNDPROBE_CD ${CMAKE_CURRENT_BINARY_DIR}/soundprobe-cd)
