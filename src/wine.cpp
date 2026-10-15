@@ -120,6 +120,66 @@ fs::path dll_dir() {
 //   Classic Board Games looks it up by that name and has no sound without it.
 const char* const kFragDlls[] = {"msadp32.acm"};
 
+bool is_win9x(const std::string& version) {
+    return version == "win31" || version == "win95" || version == "win98" || version == "winme";
+}
+
+// Windows 9x describes its hardware in two places that Wine leaves empty:
+// HKLM\Enum (one key per device, pointing at its driver under
+// HKLM\System\CurrentControlSet\Services\Class) and HKEY_DYN_DATA\Config Manager\Enum
+// (the devices running now, each naming its HKLM\Enum key in HardWareKey).
+// Need for Speed III's 3dsetup reads them to find the display card and fails with
+// "Could not get 'HardWareKey' value" (Wine bug 7115). FRAG describes one PCI
+// Direct3D card of the era, an NVIDIA RIVA TNT.
+const char* const kDisplayEnumKey = "PCI\\VEN_10DE&DEV_0020&SUBSYS_00000000&REV_04\\BUS_01&DEV_00&FUNC_00";
+
+std::string win9x_hardware_reg() {
+    std::ostringstream o;
+    o << "[HKEY_LOCAL_MACHINE\\Enum\\" << kDisplayEnumKey << "]\n"
+      << "\"Class\"=\"Display\"\n"
+      << "\"Driver\"=\"Display\\\\0000\"\n"
+      << "\"DeviceDesc\"=\"NVIDIA RIVA TNT\"\n"
+      << "\"Mfg\"=\"NVIDIA\"\n"
+      << "\"HardwareID\"=\"PCI\\\\VEN_10DE&DEV_0020&SUBSYS_00000000&REV_04,PCI\\\\VEN_10DE&DEV_0020\"\n"
+      << "\"CompatibleIDs\"=\"PCI\\\\CC_030000,PCI\\\\CC_0300\"\n"
+      << "\"ConfigFlags\"=hex:00,00,00,00\n\n"
+      << "[HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Services\\Class\\Display]\n"
+      << "@=\"Display adapters\"\n\n"
+      << "[HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Services\\Class\\Display\\0000]\n"
+      << "\"DriverDesc\"=\"NVIDIA RIVA TNT\"\n"
+      << "\"MfgName\"=\"NVIDIA\"\n"
+      << "\"Ver\"=\"4.0\"\n"
+      << "\"DevLoader\"=\"*vdd,*vflatd\"\n\n"
+      << "[HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Services\\Class\\Display\\0000\\DEFAULT]\n"
+      << "\"drv\"=\"nvdisp.drv\"\n"
+      << "\"vdd\"=\"*vdd\"\n"
+      << "\"Mode\"=\"16,640,480\"\n"
+      << "\"RefreshRate\"=\"0\"\n\n";
+    return o.str();
+}
+
+// A string as a .reg value: backslashes and quotes escaped.
+std::string reg_escape(const std::string& v) {
+    std::string out;
+    for (char c : v) {
+        if (c == '\\' || c == '"') out += '\\';
+        out += c;
+    }
+    return out;
+}
+
+// HKEY_DYN_DATA only lives as long as the prefix's wineserver, like on Windows 9x,
+// where it is rebuilt at every boot. So it is loaded before every game run.
+std::string win9x_dyn_data_reg() {
+    std::ostringstream o;
+    o << "REGEDIT4\n\n"
+      << "[HKEY_DYN_DATA\\Config Manager\\Enum\\C1A00000]\n"
+      << "\"HardWareKey\"=\"" << reg_escape(kDisplayEnumKey) << "\"\n"
+      << "\"Problem\"=hex:00,00,00,00\n"
+      << "\"Status\"=hex:0b,60,00,00\n\n";
+    return o.str();
+}
+
 }  // namespace
 
 fs::path data_dir() {
@@ -257,7 +317,7 @@ void WinePrefix::sync_drives() {
 void WinePrefix::write_registry() {
     std::ostringstream out;
     out << "REGEDIT4\n"
-        << "; frag settings v3 (64-bit registry view)\n\n"
+        << "; frag settings v4 (64-bit registry view)\n\n"
         << "[HKEY_CURRENT_USER\\Software\\Wine]\n"
         << "\"Version\"=\"" << cfg_.windows_version << "\"\n\n"
         << "[HKEY_LOCAL_MACHINE\\Software\\Wine\\Drives]\n";
@@ -271,6 +331,7 @@ void WinePrefix::write_registry() {
     out << "\n[HKEY_LOCAL_MACHINE\\System\\MountedDevices]\n";
     for (const auto& d : cfg_.drives) out << "\"\\\\DosDevices\\\\" << d.letter << ":\"=-\n";
     out << '\n';
+    if (is_win9x(cfg_.windows_version)) out << win9x_hardware_reg();
 
     const fs::path reg = path_ / "frag-settings.reg";
     if (!write_if_changed(reg, out.str())) return;
@@ -355,12 +416,99 @@ std::string WinePrefix::to_windows_path(const fs::path& host_path) const {
     return {};
 }
 
+// The program a CD's autorun.inf starts ("open=" under [autorun]), as Windows
+// does when the disc is inserted. Uses the first CD-ROM drive that has one.
+std::string WinePrefix::autorun_exe(std::vector<std::string>& args) const {
+    for (const auto& d : cfg_.drives) {
+        if (d.type != "cdrom") continue;
+        fs::path inf;
+        try {
+            inf = to_host_path(std::string(1, d.letter) + ":\\AUTORUN.INF");
+        } catch (const std::exception&) {
+            continue;
+        }
+        std::ifstream in(inf);
+        bool in_autorun = false;
+        for (std::string line; std::getline(in, line);) {
+            if (!line.empty() && line.back() == '\r') line.pop_back();
+            if (!line.empty() && line[0] == '[') {
+                in_autorun = lower(line).rfind("[autorun]", 0) == 0;
+                continue;
+            }
+            auto eq = line.find('=');
+            if (!in_autorun || eq == std::string::npos) continue;
+            std::string key = lower(line.substr(0, eq));
+            key.erase(key.find_last_not_of(" \t") + 1);
+            if (key != "open") continue;
+            std::istringstream words(line.substr(eq + 1));
+            std::string exe;
+            words >> exe;
+            for (std::string a; words >> a;) args.push_back(a);
+            std::replace(exe.begin(), exe.end(), '/', '\\');
+            if (exe.size() >= 1 && exe[0] == '\\') exe.erase(0, 1);
+            return std::string(1, d.letter) + ":\\" + exe;
+        }
+    }
+    return {};
+}
+
+// Setup programs on the configured drives, for "exe not found" errors: games put
+// them in subfolders and use any capitalisation.
+std::string WinePrefix::exe_not_found_hint() const {
+    std::vector<std::string> found;
+    for (const auto& d : cfg_.drives) {
+        std::error_code ec;
+        for (auto it = fs::recursive_directory_iterator(d.path, ec);
+             !ec && it != fs::recursive_directory_iterator() && found.size() < 10; it.increment(ec)) {
+            if (it.depth() > 2) {
+                it.disable_recursion_pending();
+                continue;
+            }
+            const std::string name = lower(it->path().filename().string());
+            if (name != "setup.exe" && name != "install.exe" && name != "autorun.exe") continue;
+            std::string win = std::string(1, d.letter) + ":";
+            for (const auto& part : it->path().lexically_relative(d.path)) win += "\\" + part.string();
+            found.push_back(win);
+        }
+    }
+    if (found.empty()) return {};
+    std::string hint = "\nPrograms that look like installers on the game's drives:";
+    for (const auto& f : found) hint += "\n  exe = " + f;
+    return hint;
+}
+
+// Loads the Windows 9x devices into HKEY_DYN_DATA (see win9x_dyn_data_reg). That
+// key lives in the wineserver, so a server is started that stays up for 30 s
+// after its last program exits; otherwise it could exit between the import and
+// the game's start and take the keys with it.
+void WinePrefix::load_win9x_hardware() const {
+    fs::path server = "wineserver";
+    if (wine_.find('/') != std::string::npos) server = fs::path(wine_).parent_path() / "wineserver";
+    // Exit code 2: a server is already running, which serves just as well.
+    run_process({server.string(), "-p30"}, {{"WINEPREFIX", path_.string()}}, verbose_);
+    const fs::path reg = path_ / "drive_c" / "windows" / "frag-dyndata.reg";
+    write_if_changed(reg, win9x_dyn_data_reg());
+    // regedit, not reg: reg.exe doesn't know HKEY_DYN_DATA.
+    if (int rc = wine_cmd({"regedit", "/s", "C:\\windows\\frag-dyndata.reg"}); rc != 0)
+        std::cerr << "frag: warning: loading Windows 9x hardware info failed (exit code " << rc << ")\n";
+}
+
 int WinePrefix::run(const RunOptions& opts) {
     // Windows paths go to Wine as-is so the program sees itself on the right drive.
     std::string exe = cfg_.exe;
+    std::vector<std::string> autorun_args;
+    if (exe.empty()) {
+        exe = autorun_exe(autorun_args);
+        if (exe.empty()) throw std::runtime_error("no exe set and no autorun.inf on a CD drive; set [game] exe");
+        if (opts.verbose) std::cerr << "frag: starting " << exe << " from autorun.inf\n";
+    }
     fs::path host_exe;
     if (is_windows_path(exe)) {
-        host_exe = to_host_path(exe);
+        try {
+            host_exe = to_host_path(exe);
+        } catch (const std::runtime_error& e) {
+            throw std::runtime_error(e.what() + exe_not_found_hint());
+        }
     } else {
         host_exe = fs::weakly_canonical(cfg_.file.parent_path() / exe);
         exe = to_windows_path(host_exe);
@@ -394,7 +542,10 @@ int WinePrefix::run(const RunOptions& opts) {
     std::string overrides = kBaseOverrides;
     for (const auto& [dll, mode] : dlls) overrides += ";" + dll + "=" + mode;
 
+    if (is_win9x(cfg_.windows_version)) load_win9x_hardware();
+
     std::vector<std::string> argv{wine_, exe};
+    argv.insert(argv.end(), autorun_args.begin(), autorun_args.end());
     argv.insert(argv.end(), cfg_.args.begin(), cfg_.args.end());
     argv.insert(argv.end(), opts.extra_args.begin(), opts.extra_args.end());
     return run_process(argv,

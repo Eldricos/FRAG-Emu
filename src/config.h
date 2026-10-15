@@ -25,7 +25,8 @@ struct Drive {
 struct GameConfig {
     fs::path file;                     // the frag.conf this was loaded from
     std::string name;                  // [game] name, also names the prefix
-    std::string exe;                   // [game] exe, Windows path (D:\SETUP.EXE) or host path
+    std::string exe;                   // [game] exe, Windows path (D:\SETUP.EXE) or host path;
+                                       // empty = the CD's autorun.inf, like inserting the disc
     std::vector<std::string> args;     // [game] args, split on whitespace
     std::string windows_version = "win98";  // [wine] version: win31, win95, win98, winme, ...
     std::string wine_binary;           // [wine] binary, empty = "wine" from PATH or $FRAG_WINE
