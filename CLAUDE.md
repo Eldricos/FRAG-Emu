@@ -85,6 +85,15 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   name "Microsoft ADPCM"), checked by `win32_acm_adpcm`. Without MinGW, frag warns and
   runs without them.
 
+- MIDI synth (`src/midi.*`): unless `[sound] midi_synth = off`, `frag run` starts
+  `fluidsynth -a pulseaudio -m alsa_seq <soundfont>` when no synth ("fluid",
+  "timidity", "munt") is listed in `/proc/asound/seq/clients`, waits up to 5 s for it
+  to appear there (Wine enumerates MIDI ports once, at winmm load), and stops it
+  after the game. FluidSynth runs its shell on a pipe FRAG holds (O_CLOEXEC so Wine
+  doesn't inherit it); closing the pipe makes it quit. `-i` without `-s` exits at
+  once. Log: `<prefix>/fluidsynth.log`. `midi_synth` test uses a stand-in script and
+  `FRAG_SEQ_CLIENTS`; real playback needs the owner's machine (no ALSA here).
+
 ## Game notes
 
 Real games tested on the owner's machine (Ubuntu, Wine 9.0). Feed these into the
@@ -114,34 +123,20 @@ compatibility database later.
   can never pass, and it generally fails under Wine even with the disc. Only an
   official unprotected exe (publisher patch / re-release) would help. Config used
   `type = cdrom`, label `Dominion_Wars` (from the disc).
-- **Classic Board Games (Hasbro)** — WORKS with Z: hidden (crashed with a stack
-  overflow from a path string when Z: was visible). Installs exe to
+- **Classic Board Games (Hasbro)** — WORKS, with sound and MIDI music. Installs exe to
   `C:\\Program Files (x86)\\Hasbro Interactive\\Classic Games\\ClassicBoard.exe`; uses
-  Smacker video (smackw32), DirectDraw, WinG. Shows "Could not initialize sound: (1)"
-  at start but has audio in game; intro video glitches for a few seconds.
-  Suspect MIDI (no host MIDI synth). With FluidSynth running, `soundprobe` in a
-  fresh prefix on the owner's machine sees 5 MIDI devices (FluidSynth first, so the
-  unset mapper uses it), 2 wave devices, DirectSound ok, and both the MIDI tune and
-  the wave beep are audible. So host sound works; the game's error is still unexplained.
-  In the game's own prefix the probe also works. That prefix has `CurrentInstrument =
-  FluidSynth`, but Wine names the port `FluidSynth - FluidSynth`; midimap logs "Registry
-  glitch" and falls back to device 0 (FluidSynth here, so harmless). The probe now warns
-  about this. `+loaddll` shows no Miles or DirectMusic: only builtin winmm and dsound,
-  plus its own native smackw32. A relay limited to them (`RelayInclude` in
-  `HKCU\Software\Wine\Debug` needs `dll.*` entries; a bare `winmm` is read as a
-  function name) shows DirectSoundCreate succeeding, then `acmDriverEnum` with a
-  callback at 0x578980 that calls `acmDriverDetailsA` on all 6 drivers (Wine's
-  imaadp32, msadp32, msg711, l3codeca, msgsm32, and msacm32's internal PCM), then
-  the error box at once. So the game looks for an ACM codec it doesn't find among
-  Wine's: either one Wine lacks, or a Wine driver whose details differ from Windows.
-  The callback only stores each driver; the exe contains the string "Microsoft ADPCM"
-  and makes no other ACM call before the error, so it matches driver names. Windows'
-  msadp32 is "Microsoft ADPCM" / "Microsoft ADPCM CODEC"; Wine's (9.0 and current
-  master) is "MS-ADPCM" / "Wine MS ADPCM converter" (soundprobe now lists ACM drivers).
-  Wine's IMA driver already uses the Windows name. FIXED in FRAG by shipping a renamed
-  build of Wine's driver (see "FRAG's own DLLs"); awaiting confirmation on the owner's
-  machine that the error is gone and music plays. Could also go upstream to Wine. InstallShield with 16-bit bootstrap
-  (`Win16Mutex` timeout + ignored exceptions, harmless).
+  Smacker video (smackw32), DirectDraw, WinG, DirectSound, MIDI via the winmm mapper.
+  InstallShield with 16-bit bootstrap (`Win16Mutex` timeout + ignored exceptions, harmless).
+  - Needs Z: hidden: with Z: visible it crashed (path buffer overflow while scanning drives).
+  - "Could not initialize sound: (1)" and no music: the game enumerates ACM drivers and
+    wants one named "Microsoft ADPCM"; Wine's msadp32 says "MS-ADPCM". Fixed by FRAG's
+    renamed `msadp32.acm`; confirmed on the owner's machine (error gone, music plays).
+    Found with a relay limited by `RelayInclude` (`winmm.*;dsound.*;msacm32.*;...`;
+    a bare `winmm` is read as a function name) plus disassembly of the callback.
+  - Music needs a MIDI synth; FRAG now starts FluidSynth itself (was by hand).
+    Their prefix has `CurrentInstrument = FluidSynth`, but Wine names the port
+    `FluidSynth - FluidSynth`; midimap falls back to device 0, harmless here.
+  - Open: intro video glitches for a few seconds.
 
 ## Roadmap
 
@@ -153,5 +148,5 @@ compatibility database later.
 6. Win9x-specific fixes in a Wine fork, driven by real games that break.
 7. Handle bundled redistributable installers (DirectX, DirectX Media, Indeo) that
    overwrite Wine DLLs: detect and skip, or install into a throwaway layer.
-8. MIDI: bundle or configure a software synth (FluidSynth + General MIDI SoundFont)
-   so games' MIDI music works without host setup.
+8. MIDI: ~~start FluidSynth automatically~~ (needs the host's fluidsynth package).
+   Later: bundle it, or MT-32 (Munt) for games that want one.

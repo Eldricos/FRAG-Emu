@@ -70,7 +70,8 @@ GameConfig load_config(const fs::path& path) {
                 cfg.drives.push_back(Drive{static_cast<char>(std::toupper(letter[0])), {}, "hd", {}});
                 drive = &cfg.drives.back();
                 section = "drive";
-            } else if (section != "game" && section != "wine" && section != "dlls") {
+            } else if (section != "game" && section != "wine" && section != "dlls" &&
+                       section != "sound") {
                 fail(file, lineno, "unknown section [" + section + "]");
             }
             continue;
@@ -96,6 +97,13 @@ GameConfig load_config(const fs::path& path) {
                 else fail(file, lineno, "host_drive must be yes or no");
             }
             else fail(file, lineno, "unknown key '" + key + "' in [wine]");
+        } else if (section == "sound") {
+            if (key == "midi_synth") {
+                cfg.midi_synth = lower(value);
+                if (cfg.midi_synth != "auto" && cfg.midi_synth != "off")
+                    fail(file, lineno, "midi_synth must be auto or off");
+            } else if (key == "soundfont") cfg.soundfont = fs::weakly_canonical(base / value);
+            else fail(file, lineno, "unknown key '" + key + "' in [sound]");
         } else if (section == "dlls") {
             cfg.dll_overrides[lower(key)] = lower(value);
         } else if (section == "drive") {

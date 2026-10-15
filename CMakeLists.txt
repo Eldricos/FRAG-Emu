@@ -12,6 +12,7 @@ endif()
 add_executable(frag
   src/main.cpp
   src/config.cpp
+  src/midi.cpp
   src/wine.cpp
 )
 target_compile_definitions(frag PRIVATE FRAG_VERSION="${PROJECT_VERSION}")

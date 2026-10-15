@@ -26,6 +26,13 @@ if(MINGW32_CC)
                    ${CMAKE_CURRENT_BINARY_DIR}/stale-drive/hello32.conf)
   set_tests_properties(win32_stale_host_drive PROPERTIES TIMEOUT 300)
 
+  # FluidSynth is started for a game's MIDI music and stopped afterwards.
+  configure_file(conf/hello32.conf.in ${CMAKE_CURRENT_BINARY_DIR}/midi-synth/hello32.conf @ONLY)
+  add_test(NAME midi_synth
+           COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/midi_synth_test.sh $<TARGET_FILE:frag>
+                   ${CMAKE_CURRENT_BINARY_DIR}/midi-synth/hello32.conf)
+  set_tests_properties(midi_synth PROPERTIES TIMEOUT 600)
+
   # Games find the MS ADPCM codec by its Windows name; FRAG ships a renamed copy.
   set(ACM_CD ${CMAKE_CURRENT_BINARY_DIR}/acm-cd)
   file(MAKE_DIRECTORY ${ACM_CD})
