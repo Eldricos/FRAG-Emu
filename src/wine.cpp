@@ -39,10 +39,11 @@ bool is_windows_path(const std::string& p) {
            (p[2] == '\\' || p[2] == '/');
 }
 
-// Runs argv with extra environment variables, waits, and returns the exit code
-// (128 + signal number if it was killed by a signal).
+// Runs argv with extra environment variables (and in `cwd`, if given), waits, and
+// returns the exit code (128 + signal number if it was killed by a signal).
 int run_process(const std::vector<std::string>& argv,
-                const std::vector<std::pair<std::string, std::string>>& env, bool verbose) {
+                const std::vector<std::pair<std::string, std::string>>& env, bool verbose,
+                const fs::path& cwd = {}) {
     if (verbose) {
         std::cerr << "frag:";
         for (const auto& [k, v] : env) std::cerr << ' ' << k << '=' << v;
@@ -52,6 +53,7 @@ int run_process(const std::vector<std::string>& argv,
     pid_t pid = fork();
     if (pid < 0) throw std::runtime_error(std::string("fork failed: ") + std::strerror(errno));
     if (pid == 0) {
+        if (!cwd.empty() && chdir(cwd.c_str()) != 0) _exit(127);
         for (const auto& [k, v] : env) setenv(k.c_str(), v.c_str(), 1);
         std::vector<char*> cargv;
         for (const auto& a : argv) cargv.push_back(const_cast<char*>(a.c_str()));
@@ -145,7 +147,10 @@ int WinePrefix::wine_cmd(const std::vector<std::string>& args, const std::string
                         {"WINEDEBUG", debug},
                         {"WINEDLLOVERRIDES", kBaseOverrides},
                         kNoHostDrives},
-                       verbose_);
+                       verbose_,
+                       // With Z: hidden, Wine can't see the caller's directory and warns.
+                       // drive_c doesn't exist until wineboot has created the prefix.
+                       fs::is_directory(path_ / "drive_c") ? path_ / "drive_c" : path_);
 }
 
 void WinePrefix::prepare() {
