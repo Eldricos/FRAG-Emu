@@ -161,7 +161,8 @@ void WinePrefix::prepare() {
 }
 
 // Points dosdevices/<x>: at each configured drive. Letters FRAG created on an earlier
-// run but no longer configured are removed; Wine's own drives (c:, z:) are never touched.
+// run but no longer configured are removed. C: is left alone; Z: is shown or hidden
+// per [wine] host_drive.
 void WinePrefix::sync_drives() {
     const fs::path dosdevices = path_ / "dosdevices";
     const fs::path managed_file = path_ / ".frag-drives";
@@ -192,6 +193,14 @@ void WinePrefix::sync_drives() {
 
     std::ofstream out(managed_file, std::ios::trunc);
     for (char l : current) out << l << '\n';
+
+    // Wine maps the whole host filesystem to Z:. Games that scan every drive letter
+    // for their CD trip over it; Classic Board Games overflowed a path buffer and
+    // crashed. Like DOSBox, games only see C: and their configured drives.
+    std::error_code ec;
+    fs::remove(dosdevices / "z:", ec);
+    fs::remove(dosdevices / "z::", ec);
+    if (cfg_.host_drive) fs::create_directory_symlink("/", dosdevices / "z:");
 }
 
 // Applies the Windows version and drive types with a single registry import.
@@ -216,9 +225,16 @@ void WinePrefix::write_registry() {
     const fs::path reg = path_ / "frag-settings.reg";
     if (!write_if_changed(reg, out.str())) return;
 
+    // Z: may be hidden, so Wine can't open host paths; import a copy from C:.
+    const fs::path reg_copy = path_ / "drive_c" / "windows" / "frag-settings.reg";
+    fs::copy_file(reg, reg_copy, fs::copy_options::overwrite_existing);
+
     // /reg:64 matters: `wine regedit` is a 32-bit program, so its HKLM\Software
     // writes land in Wow6432Node, where the mount manager never reads drive types.
-    if (int rc = wine_cmd({"reg", "import", reg.string(), "/reg:64"}); rc != 0) {
+    int rc = wine_cmd({"reg", "import", "C:\\windows\\frag-settings.reg", "/reg:64"});
+    std::error_code ec;
+    fs::remove(reg_copy, ec);
+    if (rc != 0) {
         fs::remove(reg);  // retry the import next run
         throw std::runtime_error("registry import failed with exit code " + std::to_string(rc));
     }
@@ -273,6 +289,22 @@ fs::path WinePrefix::to_host_path(const std::string& windows_path) const {
     return cur;
 }
 
+std::string WinePrefix::to_windows_path(const fs::path& host_path) const {
+    std::vector<std::pair<char, fs::path>> roots{{'C', path_ / "drive_c"}};
+    for (const auto& d : cfg_.drives) roots.emplace_back(d.letter, d.path);
+
+    const fs::path target = fs::weakly_canonical(host_path);
+    for (const auto& [letter, root] : roots) {
+        const fs::path rel = target.lexically_relative(fs::weakly_canonical(root));
+        if (rel.empty() || *rel.begin() == "..") continue;
+        std::string win = std::string(1, letter) + ":";
+        for (const auto& part : rel)
+            if (part != ".") win += "\\" + part.string();
+        return win;
+    }
+    return {};
+}
+
 int WinePrefix::run(const RunOptions& opts) {
     // Windows paths go to Wine as-is so the program sees itself on the right drive.
     std::string exe = cfg_.exe;
@@ -281,7 +313,14 @@ int WinePrefix::run(const RunOptions& opts) {
         host_exe = to_host_path(exe);
     } else {
         host_exe = fs::weakly_canonical(cfg_.file.parent_path() / exe);
-        exe = host_exe.string();
+        exe = to_windows_path(host_exe);
+        if (exe.empty()) {
+            if (!cfg_.host_drive)
+                throw std::runtime_error("exe " + host_exe.string() +
+                                         " is not on C: or any [drive]; add a [drive] for its "
+                                         "folder or set host_drive = yes under [wine]");
+            exe = host_exe.string();  // Wine resolves it through Z:
+        }
     }
     if (!fs::is_regular_file(host_exe)) throw std::runtime_error("exe not found: " + host_exe.string());
 

@@ -74,6 +74,7 @@ them only when you need them:
 # version = win95              # win31, win95, win98 or winme (default: win98)
 # binary  = /path/to/wine      # a specific Wine build (default: wine on your PATH,
                                # or $FRAG_WINE if set)
+# host_drive = yes             # show your whole Linux filesystem as Z: (default: no)
 
 [drive D]
 # type  = cdrom                # hd (default) or cdrom; use cdrom for CD contents
@@ -93,9 +94,12 @@ FRAG prefers a game's own 1990s video codecs (Indeo, Cinepak, Microsoft Video 1)
 over Wine's built-in ones, falling back to Wine's when the game has none. Set
 e.g. `ir50_32 = builtin` under `[dlls]` to change that for one game.
 
-Games stay self-contained: shortcuts made by installers are not added to your
-desktop's application menu, and your computer's real CD/DVD and USB drives are
-hidden from the game. Start games with `frag run`.
+Games stay self-contained, like in DOSBox: a game sees only C: (its own Wine
+prefix) and the drives in its `frag.conf`. Wine's usual Z: drive, which shows your
+whole Linux filesystem, is hidden because old games that scan every drive letter
+for their CD can crash on it. Your computer's real CD/DVD and USB drives are
+hidden too, and shortcuts made by installers are not added to your desktop's
+application menu. Start games with `frag run`.
 
 Windows paths are matched case-insensitively, like on Windows, so
 `D:\SETUP.EXE` finds `setup.exe`. The game starts in its exe's directory.

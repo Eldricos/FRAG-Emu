@@ -4,6 +4,7 @@
  *   - the prefix reports Windows 98 (GetVersionEx),
  *   - the program sees itself and its working directory on the expected drive,
  *   - a window can be created and a message loop runs to completion.
+ *   - the host filesystem drive Z: is hidden,
  *   - optionally, that its drive is a CD-ROM with the expected volume label.
  * Usage: hello32.exe <expected drive letter> [<expected CD label>]
  * Exit code is the number of failed checks.
@@ -65,6 +66,8 @@ int main(int argc, char **argv)
     GetCurrentDirectoryA(sizeof(buf), buf);
     printf("cwd: %s\n", buf);
     check((buf[0] & ~0x20) == (expected & ~0x20) && buf[1] == ':', "working directory is on the expected drive");
+
+    check(!(GetLogicalDrives() & (1u << ('Z' - 'A'))), "host filesystem drive Z: is hidden");
 
     if (cd_label) {
         root[0] = expected;

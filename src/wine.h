@@ -32,6 +32,10 @@ public:
     // matching each component case-insensitively like Windows does.
     fs::path to_host_path(const std::string& windows_path) const;
 
+    // The reverse: the Windows path of a host file on C: or a configured drive,
+    // or an empty string if it is on none of them.
+    std::string to_windows_path(const fs::path& host_path) const;
+
 private:
     const GameConfig& cfg_;
     bool verbose_;
