@@ -1,0 +1,14 @@
+# [wine] video_memory: what DirectDraw reports to games.
+[game]
+name = vidmem
+exe = D:\VIDMEM.EXE
+args = 96
+
+[wine]
+video_memory = 96
+
+[drive D]
+path = @HW_CD@
+
+[sound]
+midi_synth = off

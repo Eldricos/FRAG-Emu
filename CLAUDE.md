@@ -143,6 +143,15 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   polled until ready. Explorer is killed after the game. `win32_desktop` test,
   5/5 runs pass (the race failed 2/3 without the start.exe key).
 
+- Video memory: wined3d takes VRAM from the GL driver (WGL_WINE_query_renderer).
+  VMware's SVGA3D reports 1 MB, so creating any primary surface failed with
+  `err:d3d:resource_init Out of adapter memory.` / DDERR_OUTOFVIDEOMEMORY
+  (0x8876017c). FRAG always writes `HKCU\Software\Wine\Direct3D\VideoMemorySize`
+  (string, MB) from `[wine] video_memory`, default 128 (also keeps multi-GB cards
+  from confusing old games; Wine itself caps at LONG_MAX for pre-Vista versions).
+  ddraw's GetAvailableVidMem reports the total minus the screen's framebuffer.
+  `win32_video_memory` checks it; with 4 MB it reproduces 0x8876017c exactly.
+
 ## Game notes
 
 Real games tested on the owner's machine (Ubuntu, Wine 9.0). Feed these into the
@@ -193,20 +202,26 @@ compatibility database later.
     'HardWareKey' value" from `3dsetup` (Wine bug 7115: Win9x mode, empty
     HKEY_DYN_DATA). FIXED by FRAG's Win9x hardware entries; confirmed (installs).
   - Game then says "The Microsoft DirectX 5 drivers must be installed for Need For
-    Speed III to run!", also after running the disc's DirectX installer. Cause
-    unknown: candidates are a DirectX version check (registry, ddraw.dll version
-    info) or Direct3D device enumeration. Owner's machine is a VM, so 3D
-    acceleration may be missing. Vogons: 3dsetup offers only software rendering
-    on modern systems; Lutris uses nGlide (Glide wrapper).
+    Speed III to run!". Trace: reads its "D3D Device" setting, DirectDrawCreate
+    succeeds, then wined3d logs "Out of adapter memory" twice, then the box. Same
+    cause as LEGO Racers: VMware's GL driver reports 1 MB VRAM. Fixed by FRAG's
+    VideoMemorySize default; awaiting retest. (Vogons: 3dsetup offers only software
+    rendering on modern systems; Lutris uses nGlide.)
 - **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"
   (DirectShow `IVideoWindow::put_MessageDrain`, i.e. the intro video's graph
   failed; Indeo video). Known workaround on Windows too: `args = -novideo`.
   With it the game starts but shows only a black screen and had to be killed,
   leaving the host at the game's resolution (now handled by ScreenModeGuard).
-- Owner's machine: Ubuntu in VMware with VMware Tools; `glxinfo -B` says
-  "Accelerated: no" although 3D acceleration is enabled in the VM settings. Likely
-  blocks every Direct3D game (NFS3, LEGO Racers). Investigating.
+  In a 800x600 FRAG desktop it then said "Unable to create primary drawing surface
+  error 8876017c" (DDERR_OUTOFVIDEOMEMORY) with "Out of adapter memory": the 1 MB
+  VRAM report. Fixed by FRAG's VideoMemorySize default; awaiting retest.
+- Owner's machine: Ubuntu 24.04 (X11 session) in VMware Workstation 15.5.7 on
+  Windows 10, RTX 2080. Guest GL: renderer "SVGA3D; build: RELEASE; LLVM;", OpenGL
+  3.3 core, Mesa 25.2.8; vmwgfx reports 3D, dx, SM4_1. That is VMware's host-GPU
+  path (software would be "llvmpipe" with GL 4.5); glxinfo's "Accelerated: no" and
+  "Video memory: 1MB" are how Mesa's svga driver reports itself, not a fault. GL 3.3
+  is enough for wined3d's Direct3D 1-9. (Workstation 17 would give GL 4.3.)
 
 ## Roadmap
 

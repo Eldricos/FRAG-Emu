@@ -31,6 +31,7 @@ struct GameConfig {
     std::string windows_version = "win98";  // [wine] version: win31, win95, win98, winme, ...
     std::string wine_binary;           // [wine] binary, empty = "wine" from PATH or $FRAG_WINE
     bool host_drive = false;           // [wine] host_drive: show the host filesystem as Z:
+    unsigned video_memory = 128;       // [wine] video_memory: MB of video memory games are told about
     std::string desktop;               // [wine] desktop: "WxH" runs the game in a window of that
                                        // size (Wine's virtual desktop); empty = full screen
     std::vector<Drive> drives;         // [drive X] sections

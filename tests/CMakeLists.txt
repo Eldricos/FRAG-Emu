@@ -65,6 +65,19 @@ if(MINGW32_CC)
            COMMAND ${RUN_TEST} $<TARGET_FILE:frag> ${CMAKE_CURRENT_BINARY_DIR}/desktop.conf)
   set_tests_properties(win32_desktop PROPERTIES TIMEOUT 300)
 
+  # [wine] video_memory: the amount DirectDraw reports, whatever the GL driver says.
+  add_custom_command(
+    OUTPUT ${HW_CD}/VIDMEM.EXE
+    COMMAND ${MINGW32_CC} -O2 -Wall -o ${HW_CD}/VIDMEM.EXE ${CMAKE_CURRENT_SOURCE_DIR}/win32/vidmem.c
+            -lddraw -ldxguid
+    DEPENDS win32/vidmem.c
+    COMMENT "Building Win32 test program vidmem.exe")
+  add_custom_target(test_vidmem ALL DEPENDS ${HW_CD}/VIDMEM.EXE)
+  configure_file(conf/vidmem.conf.in ${CMAKE_CURRENT_BINARY_DIR}/vidmem.conf @ONLY)
+  add_test(NAME win32_video_memory
+           COMMAND ${RUN_TEST} $<TARGET_FILE:frag> ${CMAKE_CURRENT_BINARY_DIR}/vidmem.conf)
+  set_tests_properties(win32_video_memory PROPERTIES TIMEOUT 300)
+
   # Games find the MS ADPCM codec by its Windows name; FRAG ships a renamed copy.
   set(ACM_CD ${CMAKE_CURRENT_BINARY_DIR}/acm-cd)
   file(MAKE_DIRECTORY ${ACM_CD})
