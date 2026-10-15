@@ -109,6 +109,20 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   Not yet: CD audio (Wine's mcicda needs real CD ioctls), multi-session, .mdf/.nrg/.ccd.
   `disc_image` test builds an ISO with genisoimage (skips if missing) and a
   .cue/.bin with python3.
+  Confirmed on the owner's machine: Classic Board Games runs from a `dd`-made .iso
+  with no label setting.
+
+- Win9x hardware registry (win31/95/98/me only): Wine leaves
+  `HKEY_DYN_DATA\Config Manager\Enum` empty (Wine bug 7115). FRAG adds one PCI
+  display device (NVIDIA RIVA TNT): persistent `HKLM\Enum\PCI\...` (Class Display,
+  Driver Display\0000) and `HKLM\System\CurrentControlSet\Services\Class\Display\0000`
+  in frag-settings.reg, plus the DYN_DATA entry with HardWareKey. DYN_DATA lives only
+  in the wineserver (gone ~1-2 s after the last process exits), so `run()` starts
+  `wineserver -p30` and imports it with `regedit` (reg.exe doesn't know HKDD) right
+  before every game. `win32_win9x_hardware` reads it the way NFS3's 3dsetup does.
+- `exe` may be omitted when a CD drive has `autorun.inf` (its `open=` is run, with
+  args). A missing exe's error lists setup/install/autorun.exe found up to 3 levels
+  deep. Both covered by `disc_image`.
 
 ## Game notes
 
@@ -152,7 +166,13 @@ compatibility database later.
   - Music needs a MIDI synth; FRAG starts FluidSynth itself (confirmed working).
     Their prefix has `CurrentInstrument = FluidSynth`, but Wine names the port
     `FluidSynth - FluidSynth`; midimap falls back to device 0, harmless here.
+  - Runs from an .iso of its disc (`[drive D] image = ...`, label/serial automatic).
   - Open: intro video glitches for a few seconds.
+
+- **Need for Speed III: Hot Pursuit (1998)** — in progress. Installer
+  (`setup.exe` in a subfolder, lower case) showed "Could not get 'HardWareKey' value"
+  from `3dsetup` (Wine bug 7115: Win9x mode, empty HKEY_DYN_DATA). FRAG now fills
+  in a display device; awaiting retest on the owner's machine.
 
 ## Roadmap
 

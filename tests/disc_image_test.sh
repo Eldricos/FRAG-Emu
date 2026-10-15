@@ -14,6 +14,9 @@ command -v python3 >/dev/null || { echo "SKIP: python3 not installed"; exit 77; 
 rm -rf "$work" && mkdir -p "$work/src/LongDirectoryName"
 cp "$exe" "$work/src/HELLO32.EXE"
 echo "hello from the CD" > "$work/src/LongDirectoryName/a_long_file_name.text"
+# Like many game CDs: autorun.inf, and an installer in a subfolder in lower case.
+printf '[autorun]\r\nopen=HELLO32.EXE D FRAGDISC\r\n' > "$work/src/AUTORUN.INF"
+mkdir -p "$work/src/Install" && cp "$exe" "$work/src/Install/setup.exe"
 genisoimage -quiet -J -V FRAGDISC -o "$work/test.iso" "$work/src" || { echo "FAIL: genisoimage"; exit 1; }
 
 # Expected serial, computed independently: byte sums of the Joliet descriptor, Win9x order.
@@ -68,4 +71,19 @@ CONF
     "$here/run_test.sh" "$frag" "$work/frag.conf" > "$work/out.txt" 2>&1 || { echo "FAIL: $image second run"; exit 1; }
     grep -q unpacking "$work/out.txt" && { echo "FAIL: $image was unpacked again"; exit 1; }
 done
+# No exe: start what autorun.inf names, like inserting the disc in Windows.
+printf '[game]\nname = disc-image-test\n\n[drive D]\nimage = test.iso\n\n[sound]\nmidi_synth = off\n' \
+    > "$work/frag.conf"
+echo "== autorun.inf"
+"$here/run_test.sh" "$frag" "$work/frag.conf" > "$work/out.txt" 2>&1
+rc=$?
+grep -E 'autorun|FAIL|label' "$work/out.txt"
+[ $rc -eq 0 ] && grep -q 'from autorun.inf' "$work/out.txt" || { echo "FAIL: autorun.inf (exit $rc)"; exit 1; }
+
+# A wrong exe: the error lists the installer found in the subfolder.
+sed -i 's|^\[game\]|[game]\nexe = D:\\SETUP.EXE|' "$work/frag.conf"
+echo "== wrong exe"
+"$here/run_test.sh" "$frag" "$work/frag.conf" > "$work/out.txt" 2>&1 && { echo "FAIL: wrong exe ran"; exit 1; }
+grep -A2 'path not found' "$work/out.txt"
+grep -qF 'exe = D:\Install\setup.exe' "$work/out.txt" || { echo "FAIL: no hint for the installer"; exit 1; }
 echo "PASS: games run from .iso and .cue/.bin images"

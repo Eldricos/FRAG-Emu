@@ -39,6 +39,20 @@ if(MINGW32_CC)
                    ${CMAKE_CURRENT_BINARY_DIR}/midi-synth/hello32.conf)
   set_tests_properties(midi_synth PROPERTIES TIMEOUT 600)
 
+  # Windows 9x programs find the display card through HKEY_DYN_DATA (NFS3's 3dsetup).
+  set(HW_CD ${CMAKE_CURRENT_BINARY_DIR}/hw-cd)
+  file(MAKE_DIRECTORY ${HW_CD})
+  add_custom_command(
+    OUTPUT ${HW_CD}/WIN9X_HW.EXE
+    COMMAND ${MINGW32_CC} -O2 -Wall -o ${HW_CD}/WIN9X_HW.EXE ${CMAKE_CURRENT_SOURCE_DIR}/win32/win9x_hardware.c
+    DEPENDS win32/win9x_hardware.c
+    COMMENT "Building Win32 test program win9x_hw.exe")
+  add_custom_target(test_win9x_hardware ALL DEPENDS ${HW_CD}/WIN9X_HW.EXE)
+  configure_file(conf/win9x_hardware.conf.in ${CMAKE_CURRENT_BINARY_DIR}/win9x_hardware.conf @ONLY)
+  add_test(NAME win32_win9x_hardware
+           COMMAND ${RUN_TEST} $<TARGET_FILE:frag> ${CMAKE_CURRENT_BINARY_DIR}/win9x_hardware.conf)
+  set_tests_properties(win32_win9x_hardware PROPERTIES TIMEOUT 300)
+
   # Games find the MS ADPCM codec by its Windows name; FRAG ships a renamed copy.
   set(ACM_CD ${CMAKE_CURRENT_BINARY_DIR}/acm-cd)
   file(MAKE_DIRECTORY ${ACM_CD})

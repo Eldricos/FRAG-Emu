@@ -129,7 +129,7 @@ GameConfig load_config(const fs::path& path) {
     }
 
     if (cfg.name.empty()) throw std::runtime_error(file.string() + ": [game] name is required");
-    if (cfg.exe.empty()) throw std::runtime_error(file.string() + ": [game] exe is required");
+
     for (auto& d : cfg.drives) {
         const std::string where = file.string() + ": drive " + d.letter + ": ";
         if (!d.image.empty()) {
@@ -144,6 +144,9 @@ GameConfig load_config(const fs::path& path) {
             throw std::runtime_error(file.string() + ": drive " + d.letter +
                                      ": path is not a directory: " + d.path.string());
     }
+    if (cfg.exe.empty() && std::none_of(cfg.drives.begin(), cfg.drives.end(),
+                                        [](const Drive& d) { return d.type == "cdrom"; }))
+        throw std::runtime_error(file.string() + ": [game] exe is required (or a CD drive with autorun.inf)");
     return cfg;
 }
 

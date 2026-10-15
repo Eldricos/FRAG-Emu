@@ -1,0 +1,10 @@
+# Windows 9x hardware registry (HKEY_DYN_DATA\Config Manager\Enum) as NFS3's 3dsetup reads it.
+[game]
+name = win9x_hardware
+exe = D:\WIN9X_HW.EXE
+
+[drive D]
+path = @HW_CD@
+
+[sound]
+midi_synth = off

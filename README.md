@@ -78,7 +78,11 @@ exe  = D:\SETUP.EXE
 image = Example Game.cue       # .iso, .cue (with its .bin) or a raw .bin/.img
 ```
 
-Only `name` and `exe` are required. All other settings are optional; uncomment
+Leave out `exe` to start what the CD's `autorun.inf` names, as Windows does when
+the disc is inserted (usually the game's install menu). If an `exe` can't be
+found, FRAG lists the installers it sees on the game's drives.
+
+Only `name` and `exe` are required (`exe` not with a CD that has `autorun.inf`). All other settings are optional; uncomment
 them only when you need them:
 
 ```ini
