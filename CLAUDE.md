@@ -85,6 +85,15 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   name "Microsoft ADPCM"), checked by `win32_acm_adpcm`. Without MinGW, frag warns and
   runs without them.
 
+- MIDI synth (`src/midi.*`): unless `[sound] midi_synth = off`, `frag run` starts
+  `fluidsynth -a pulseaudio -m alsa_seq <soundfont>` when no synth ("fluid",
+  "timidity", "munt") is listed in `/proc/asound/seq/clients`, waits up to 5 s for it
+  to appear there (Wine enumerates MIDI ports once, at winmm load), and stops it
+  after the game. FluidSynth runs its shell on a pipe FRAG holds (O_CLOEXEC so Wine
+  doesn't inherit it); closing the pipe makes it quit. `-i` without `-s` exits at
+  once. Log: `<prefix>/fluidsynth.log`. `midi_synth` test uses a stand-in script and
+  `FRAG_SEQ_CLIENTS`; real playback needs the owner's machine (no ALSA here).
+
 ## Game notes
 
 Real games tested on the owner's machine (Ubuntu, Wine 9.0). Feed these into the
@@ -124,7 +133,7 @@ compatibility database later.
     renamed `msadp32.acm`; confirmed on the owner's machine (error gone, music plays).
     Found with a relay limited by `RelayInclude` (`winmm.*;dsound.*;msacm32.*;...`;
     a bare `winmm` is read as a function name) plus disassembly of the callback.
-  - Music needs a host MIDI synth; the owner runs FluidSynth by hand (roadmap 8).
+  - Music needs a MIDI synth; FRAG now starts FluidSynth itself (was by hand).
     Their prefix has `CurrentInstrument = FluidSynth`, but Wine names the port
     `FluidSynth - FluidSynth`; midimap falls back to device 0, harmless here.
   - Open: intro video glitches for a few seconds.
@@ -139,5 +148,5 @@ compatibility database later.
 6. Win9x-specific fixes in a Wine fork, driven by real games that break.
 7. Handle bundled redistributable installers (DirectX, DirectX Media, Indeo) that
    overwrite Wine DLLs: detect and skip, or install into a throwaway layer.
-8. MIDI: bundle or configure a software synth (FluidSynth + General MIDI SoundFont)
-   so games' MIDI music works without host setup.
+8. MIDI: ~~start FluidSynth automatically~~ (needs the host's fluidsynth package).
+   Later: bundle it, or MT-32 (Munt) for games that want one.

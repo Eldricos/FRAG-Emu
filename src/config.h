@@ -29,6 +29,8 @@ struct GameConfig {
     bool host_drive = false;           // [wine] host_drive: show the host filesystem as Z:
     std::vector<Drive> drives;         // [drive X] sections
     std::map<std::string, std::string> dll_overrides;  // [dlls] name = native,builtin
+    std::string midi_synth = "auto";   // [sound] midi_synth: auto (start FluidSynth if no synth runs) or off
+    fs::path soundfont;                // [sound] soundfont, empty = first General MIDI SoundFont found
 };
 
 // Loads a frag.conf file. `path` may be the file or a directory containing frag.conf.
