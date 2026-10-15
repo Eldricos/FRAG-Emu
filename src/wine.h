@@ -46,6 +46,7 @@ private:
     void check_wine() const;
     int wine_cmd(const std::vector<std::string>& args, const std::string& debug = "-all") const;
     void sync_drives();
+    void install_dlls();
     void write_registry();
     void restart_wineserver() const;
 };

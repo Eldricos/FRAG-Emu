@@ -13,6 +13,8 @@
 #include <windows.h>
 #include <mmsystem.h>
 #include <dsound.h>
+#include <mmreg.h>
+#include <msacm.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -87,6 +89,41 @@ static void wave_report(void)
                formats[i].channels == 2 ? "stereo" : "mono  ", open == MMSYSERR_NOERROR ? "ok" : "FAILED", open);
         if (open == MMSYSERR_NOERROR) waveOutClose(h);
     }
+}
+
+static BOOL CALLBACK acm_tag_cb(HACMDRIVERID id, LPACMFORMATTAGDETAILSA d, DWORD_PTR inst, DWORD support)
+{
+    printf("      format tag 0x%04lx '%s'\n", (unsigned long)d->dwFormatTag, d->szFormatTag);
+    return TRUE;
+}
+
+static BOOL CALLBACK acm_driver_cb(HACMDRIVERID id, DWORD_PTR inst, DWORD support)
+{
+    ACMDRIVERDETAILSA d;
+    HACMDRIVER h;
+    memset(&d, 0, sizeof(d));
+    d.cbStruct = sizeof(d);
+    if (acmDriverDetailsA(id, &d, 0) != MMSYSERR_NOERROR) {
+        printf("  (details failed)\n");
+        return TRUE;
+    }
+    printf("  '%s' / '%s' mid=%u pid=%u formats=%lu\n", d.szShortName, d.szLongName, d.wMid, d.wPid,
+           (unsigned long)d.cFormatTags);
+    if (acmDriverOpen(&h, id, 0) == MMSYSERR_NOERROR) {
+        ACMFORMATTAGDETAILSA t;
+        memset(&t, 0, sizeof(t));
+        t.cbStruct = sizeof(t);
+        acmFormatTagEnumA(h, &t, acm_tag_cb, 0, 0);
+        acmDriverClose(h, 0);
+    }
+    return TRUE;
+}
+
+/* Games look up codecs by name (Classic Board Games wants "Microsoft ADPCM") */
+static void acm_report(void)
+{
+    printf("\n== ACM audio codecs\n");
+    acmDriverEnum(acm_driver_cb, 0, 0);
 }
 
 static void dsound_report(void)
@@ -164,6 +201,7 @@ int main(int argc, char **argv)
     midi_report();
     wave_report();
     dsound_report();
+    acm_report();
     if (!quiet) {
         play_midi();
         play_wave();
