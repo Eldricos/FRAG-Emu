@@ -33,7 +33,7 @@ if(MINGW32_CC)
   add_custom_command(
     OUTPUT ${SOUNDPROBE_CD}/SOUNDPROBE.EXE
     COMMAND ${MINGW32_CC} -O2 -Wall -o ${SOUNDPROBE_CD}/SOUNDPROBE.EXE
-            ${CMAKE_CURRENT_SOURCE_DIR}/win32/soundprobe.c -lwinmm -ldsound
+            ${CMAKE_CURRENT_SOURCE_DIR}/win32/soundprobe.c -lwinmm -ldsound -lmsacm32
     DEPENDS win32/soundprobe.c
     COMMENT "Building sound probe")
   add_custom_target(soundprobe ALL DEPENDS ${SOUNDPROBE_CD}/SOUNDPROBE.EXE)

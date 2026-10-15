@@ -125,7 +125,12 @@ compatibility database later.
   imaadp32, msadp32, msg711, l3codeca, msgsm32, and msacm32's internal PCM), then
   the error box at once. So the game looks for an ACM codec it doesn't find among
   Wine's: either one Wine lacks, or a Wine driver whose details differ from Windows.
-  Next: disassemble the callback to see what it checks. InstallShield with 16-bit bootstrap
+  The callback only stores each driver; the exe contains the string "Microsoft ADPCM"
+  and makes no other ACM call before the error, so it matches driver names. Windows'
+  msadp32 is "Microsoft ADPCM" / "Microsoft ADPCM CODEC"; Wine's (9.0 and current
+  master) is "MS-ADPCM" / "Wine MS ADPCM converter" (soundprobe now lists ACM drivers).
+  Wine's IMA driver already uses the Windows name. Fix: rename in Wine's msadp32
+  (upstream patch), or ship a renamed build of it as a native `msadp32.acm`. InstallShield with 16-bit bootstrap
   (`Win16Mutex` timeout + ignored exceptions, harmless).
 
 ## Roadmap
