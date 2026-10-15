@@ -94,6 +94,8 @@ them only when you need them:
 # binary  = /path/to/wine      # a specific Wine build (default: wine on your PATH,
                                # or $FRAG_WINE if set)
 # host_drive = yes             # show your whole Linux filesystem as Z: (default: no)
+# video_memory = 128           # MB of video memory games are told about (default 128;
+                               # Wine would ask the graphics driver, and some VMs say 1)
 # desktop = 800x600            # run the game in a window of this size instead of
                                # full screen; it can't change your screen's mode
 

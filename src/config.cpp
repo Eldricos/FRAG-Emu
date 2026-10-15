@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cctype>
 #include <fstream>
 #include <sstream>
@@ -97,6 +98,13 @@ GameConfig load_config(const fs::path& path) {
                 if (v == "yes" || v == "true" || v == "1") cfg.host_drive = true;
                 else if (v == "no" || v == "false" || v == "0") cfg.host_drive = false;
                 else fail(file, lineno, "host_drive must be yes or no");
+            }
+            else if (key == "video_memory") {
+                char* end = nullptr;
+                unsigned long mb = std::strtoul(value.c_str(), &end, 10);
+                if (end == value.c_str() || *end || mb < 4 || mb > 2048)
+                    fail(file, lineno, "video_memory must be a number of MB from 4 to 2048");
+                cfg.video_memory = static_cast<unsigned>(mb);
             }
             else if (key == "desktop") {
                 std::string v = lower(value);

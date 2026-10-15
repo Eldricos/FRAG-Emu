@@ -321,7 +321,7 @@ void WinePrefix::sync_drives() {
 void WinePrefix::write_registry() {
     std::ostringstream out;
     out << "REGEDIT4\n"
-        << "; frag settings v7 (64-bit registry view)\n\n"
+        << "; frag settings v8 (64-bit registry view)\n\n"
         << "[HKEY_CURRENT_USER\\Software\\Wine]\n"
         << "\"Version\"=\"" << cfg_.windows_version << "\"\n\n"
         << "[HKEY_LOCAL_MACHINE\\Software\\Wine\\Drives]\n";
@@ -335,6 +335,12 @@ void WinePrefix::write_registry() {
     out << "\n[HKEY_LOCAL_MACHINE\\System\\MountedDevices]\n";
     for (const auto& d : cfg_.drives) out << "\"\\\\DosDevices\\\\" << d.letter << ":\"=-\n";
     out << '\n';
+    // Direct3D/DirectDraw video memory: Wine asks the OpenGL driver, and some
+    // report nonsense. VMware's SVGA3D driver says 1 MB, so not even a 640x480
+    // screen fits: LEGO Racers fails with DDERR_OUTOFVIDEOMEMORY and NFS III
+    // takes it for missing DirectX 5. Modern cards' many GB confuse old games too.
+    out << "[HKEY_CURRENT_USER\\Software\\Wine\\Direct3D]\n"
+        << "\"VideoMemorySize\"=\"" << cfg_.video_memory << "\"\n\n";
     if (is_win9x(cfg_.windows_version)) out << win9x_hardware_reg();
     // [wine] desktop: Wine's virtual desktop, a window that holds the game and
     // takes its mode changes instead of the real screen.
