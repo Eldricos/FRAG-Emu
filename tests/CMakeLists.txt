@@ -19,6 +19,13 @@ if(MINGW32_CC)
            COMMAND ${RUN_TEST} $<TARGET_FILE:frag> ${CMAKE_CURRENT_BINARY_DIR}/hello32.conf)
   set_tests_properties(win32_hello PROPERTIES TIMEOUT 300)
 
+  # A host CD drive that Wine assigned to D: must not hide the game's D:.
+  configure_file(conf/stale_drive.conf.in ${CMAKE_CURRENT_BINARY_DIR}/stale-drive/hello32.conf @ONLY)
+  add_test(NAME win32_stale_host_drive
+           COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/stale_drive_test.sh $<TARGET_FILE:frag>
+                   ${CMAKE_CURRENT_BINARY_DIR}/stale-drive/hello32.conf)
+  set_tests_properties(win32_stale_host_drive PROPERTIES TIMEOUT 300)
+
   # Codec self-registration: a separate "CD" so the codec DLL can't shadow other tests.
   set(TEST_CODEC_CD ${CMAKE_CURRENT_BINARY_DIR}/codec-cd)
   file(MAKE_DIRECTORY ${TEST_CODEC_CD})

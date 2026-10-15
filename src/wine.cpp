@@ -67,6 +67,14 @@ int run_process(const std::vector<std::string>& argv,
     return 1;
 }
 
+// Wine's mount manager learns about the host's CD/DVD and USB drives over the D-Bus
+// system bus and assigns them drive letters, starting at D:. A drive with no disc
+// then has its letter's folder link deleted, which removed FRAG's own D: mapping on
+// every run after the first. Games only get the drives frag.conf defines, so Wine
+// is pointed at a bus address that doesn't exist.
+const std::pair<std::string, std::string> kNoHostDrives{"DBUS_SYSTEM_BUS_ADDRESS",
+                                                        "unix:path=/nonexistent/frag-no-host-drives"};
+
 }  // namespace
 
 fs::path data_dir() {
@@ -116,7 +124,8 @@ int WinePrefix::wine_cmd(const std::vector<std::string>& args, const std::string
     return run_process(argv,
                        {{"WINEPREFIX", path_.string()},
                         {"WINEDEBUG", debug},
-                        {"WINEDLLOVERRIDES", "mscoree,mshtml="}},
+                        {"WINEDLLOVERRIDES", "mscoree,mshtml="},
+                        kNoHostDrives},
                        verbose_);
 }
 
@@ -150,6 +159,8 @@ void WinePrefix::sync_drives() {
         std::error_code ec;
         fs::remove(link, ec);
         fs::create_directory_symlink(d.path, link);
+        // A "d::" device link means Wine gave this letter to a host drive earlier.
+        fs::remove(dosdevices / (std::string(1, l) + "::"), ec);
     }
     for (char l : previous)
         if (!current.count(l)) {
@@ -173,6 +184,10 @@ void WinePrefix::write_registry() {
         for (const auto& d : cfg_.drives)
             out << '"' << static_cast<char>(std::tolower(d.letter)) << ":\"=\""
                 << d.type << "\"\n";
+        // Forget host drives Wine assigned to our letters in older prefixes.
+        out << "\n[HKEY_LOCAL_MACHINE\\System\\MountedDevices]\n";
+        for (const auto& d : cfg_.drives)
+            out << "\"\\\\DosDevices\\\\" << d.letter << ":\"=-\n";
         out << '\n';
     }
     if (int rc = wine_cmd({"regedit", "/S", reg.string()}); rc != 0)
@@ -253,7 +268,8 @@ int WinePrefix::run(const RunOptions& opts) {
     return run_process(argv,
                        {{"WINEPREFIX", path_.string()},
                         {"WINEDEBUG", opts.wine_debug},
-                        {"WINEDLLOVERRIDES", overrides}},
+                        {"WINEDLLOVERRIDES", overrides},
+                        kNoHostDrives},
                        opts.verbose);
 }
 
