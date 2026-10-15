@@ -44,6 +44,17 @@ static void midi_report(void)
         RegCloseKey(key);
     }
     printf("  MIDI mapper target (CurrentInstrument): %s\n", value[0] ? value : "(not set: first device)");
+    if (value[0]) {
+        /* Wine's mapper matches the full device name; on a mismatch it falls back to device 0 */
+        BOOL found = FALSE;
+        for (i = 0; i < n && !found; i++) {
+            MIDIOUTCAPSA caps;
+            memset(&caps, 0, sizeof(caps));
+            midiOutGetDevCapsA(i, &caps, sizeof(caps));
+            found = strcmp(caps.szPname, value) == 0;
+        }
+        if (!found) printf("  WARNING: no device has that exact name; the mapper falls back to device 0\n");
+    }
 }
 
 static void wave_report(void)
