@@ -2,6 +2,7 @@
 #include "config.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cctype>
 #include <fstream>
 #include <sstream>
@@ -96,6 +97,16 @@ GameConfig load_config(const fs::path& path) {
                 if (v == "yes" || v == "true" || v == "1") cfg.host_drive = true;
                 else if (v == "no" || v == "false" || v == "0") cfg.host_drive = false;
                 else fail(file, lineno, "host_drive must be yes or no");
+            }
+            else if (key == "desktop") {
+                std::string v = lower(value);
+                unsigned w = 0, h = 0;
+                char x = 0, extra = 0;
+                if (v == "no" || v == "off") cfg.desktop.clear();
+                else if (std::sscanf(v.c_str(), "%u%c%u%c", &w, &x, &h, &extra) == 3 && x == 'x' && w >= 320 &&
+                         h >= 200)
+                    cfg.desktop = std::to_string(w) + "x" + std::to_string(h);
+                else fail(file, lineno, "desktop must be a size like 800x600, or off");
             }
             else fail(file, lineno, "unknown key '" + key + "' in [wine]");
         } else if (section == "sound") {

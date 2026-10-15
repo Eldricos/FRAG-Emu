@@ -53,6 +53,18 @@ if(MINGW32_CC)
            COMMAND ${RUN_TEST} $<TARGET_FILE:frag> ${CMAKE_CURRENT_BINARY_DIR}/win9x_hardware.conf)
   set_tests_properties(win32_win9x_hardware PROPERTIES TIMEOUT 300)
 
+  # [wine] desktop: games run in a window of the given size.
+  add_custom_command(
+    OUTPUT ${HW_CD}/SCREEN_SIZE.EXE
+    COMMAND ${MINGW32_CC} -O2 -Wall -o ${HW_CD}/SCREEN_SIZE.EXE ${CMAKE_CURRENT_SOURCE_DIR}/win32/screen_size.c
+    DEPENDS win32/screen_size.c
+    COMMENT "Building Win32 test program screen_size.exe")
+  add_custom_target(test_screen_size ALL DEPENDS ${HW_CD}/SCREEN_SIZE.EXE)
+  configure_file(conf/desktop.conf.in ${CMAKE_CURRENT_BINARY_DIR}/desktop.conf @ONLY)
+  add_test(NAME win32_desktop
+           COMMAND ${RUN_TEST} $<TARGET_FILE:frag> ${CMAKE_CURRENT_BINARY_DIR}/desktop.conf)
+  set_tests_properties(win32_desktop PROPERTIES TIMEOUT 300)
+
   # Games find the MS ADPCM codec by its Windows name; FRAG ships a renamed copy.
   set(ACM_CD ${CMAKE_CURRENT_BINARY_DIR}/acm-cd)
   file(MAKE_DIRECTORY ${ACM_CD})

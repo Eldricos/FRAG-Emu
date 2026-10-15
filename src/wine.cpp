@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <csignal>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -255,8 +256,11 @@ void WinePrefix::prepare() {
 void WinePrefix::install_dlls() {
     const fs::path src = dll_dir();
     const fs::path windows = path_ / "drive_c" / "windows";
-    const fs::path dest = fs::is_directory(windows / "syswow64") ? windows / "syswow64" : windows / "system32";
-    for (const char* name : kFragDlls) {
+    const fs::path system = fs::is_directory(windows / "syswow64") ? windows / "syswow64" : windows / "system32";
+    std::vector<std::pair<std::string, fs::path>> files;
+    for (const char* name : kFragDlls) files.emplace_back(name, system);
+    files.emplace_back("fragdesk.exe", windows);  // helper, see start_desktop()
+    for (const auto& [name, dest] : files) {
         const std::string data = src.empty() ? std::string() : read_file(src / name);
         if (data.empty()) {
             std::cerr << "frag: warning: " << name << " not found next to frag; build it with the "
@@ -317,7 +321,7 @@ void WinePrefix::sync_drives() {
 void WinePrefix::write_registry() {
     std::ostringstream out;
     out << "REGEDIT4\n"
-        << "; frag settings v4 (64-bit registry view)\n\n"
+        << "; frag settings v7 (64-bit registry view)\n\n"
         << "[HKEY_CURRENT_USER\\Software\\Wine]\n"
         << "\"Version\"=\"" << cfg_.windows_version << "\"\n\n"
         << "[HKEY_LOCAL_MACHINE\\Software\\Wine\\Drives]\n";
@@ -332,6 +336,24 @@ void WinePrefix::write_registry() {
     for (const auto& d : cfg_.drives) out << "\"\\\\DosDevices\\\\" << d.letter << ":\"=-\n";
     out << '\n';
     if (is_win9x(cfg_.windows_version)) out << win9x_hardware_reg();
+    // [wine] desktop: Wine's virtual desktop, a window that holds the game and
+    // takes its mode changes instead of the real screen.
+    // start.exe (which `wine` uses to launch explorer) and fragdesk.exe start on
+    // a desktop of their own, so explorer creates "Default"; see start_desktop().
+    const char* const helper_keys[] = {"start.exe", "fragdesk.exe"};
+    out << "[HKEY_CURRENT_USER\\Software\\Wine\\Explorer]\n";
+    if (cfg_.desktop.empty()) {
+        out << "\"Desktop\"=-\n\n";
+        for (const char* exe : helper_keys)
+            out << "[-HKEY_CURRENT_USER\\Software\\Wine\\AppDefaults\\" << exe << "\\Explorer]\n\n";
+    } else {
+        out << "\"Desktop\"=\"Default\"\n\n"
+            << "[HKEY_CURRENT_USER\\Software\\Wine\\Explorer\\Desktops]\n"
+            << "\"Default\"=\"" << cfg_.desktop << "\"\n\n";
+        for (const char* exe : helper_keys)
+            out << "[HKEY_CURRENT_USER\\Software\\Wine\\AppDefaults\\" << exe << "\\Explorer]\n"
+                << "\"Desktop\"=\"FragProbe\"\n\n";
+    }
 
     const fs::path reg = path_ / "frag-settings.reg";
     if (!write_if_changed(reg, out.str())) return;
@@ -542,18 +564,57 @@ int WinePrefix::run(const RunOptions& opts) {
     std::string overrides = kBaseOverrides;
     for (const auto& [dll, mode] : dlls) overrides += ";" + dll + "=" + mode;
 
+    // The desktop first: any Wine program (regedit included) would otherwise
+    // bring up the desktop without the configured size.
+    const pid_t desktop = cfg_.desktop.empty() ? -1 : start_desktop();
     if (is_win9x(cfg_.windows_version)) load_win9x_hardware();
 
     std::vector<std::string> argv{wine_, exe};
     argv.insert(argv.end(), autorun_args.begin(), autorun_args.end());
     argv.insert(argv.end(), cfg_.args.begin(), cfg_.args.end());
     argv.insert(argv.end(), opts.extra_args.begin(), opts.extra_args.end());
-    return run_process(argv,
-                       {{"WINEPREFIX", path_.string()},
-                        {"WINEDEBUG", opts.wine_debug},
-                        {"WINEDLLOVERRIDES", overrides},
-                        kNoHostDrives},
-                       opts.verbose);
+    const int rc = run_process(argv,
+                               {{"WINEPREFIX", path_.string()},
+                                {"WINEDEBUG", opts.wine_debug},
+                                {"WINEDLLOVERRIDES", overrides},
+                                kNoHostDrives},
+                               opts.verbose);
+    if (desktop > 0) {
+        kill(desktop, SIGTERM);
+        waitpid(desktop, nullptr, 0);
+    }
+    return rc;
+}
+
+// Opens Wine's virtual desktop of the configured size before the game starts.
+// Every Wine program creates the "Default" desktop when it starts if it doesn't
+// exist yet, as an ordinary screen-sized one; only explorer creates it virtual.
+// With just the registry setting, the game won that race in FRAG prefixes and saw
+// the full screen (stock prefixes got lucky: winemenubuilder, run at boot, let
+// explorer go first; FRAG disables it). So explorer is started first, start.exe
+// launching it is kept off "Default" (registry), and fragdesk.exe reports when
+// the desktop is ready. Returns explorer's pid.
+pid_t WinePrefix::start_desktop() const {
+    const pid_t pid = fork();
+    if (pid == 0) {
+        setenv("WINEPREFIX", path_.c_str(), 1);
+        setenv("WINEDEBUG", "-all", 1);
+        setenv("WINEDLLOVERRIDES", kBaseOverrides, 1);
+        setenv(kNoHostDrives.first.c_str(), kNoHostDrives.second.c_str(), 1);
+        const std::string arg = "/desktop=Default," + cfg_.desktop;
+        execlp(wine_.c_str(), wine_.c_str(), "explorer", arg.c_str(), nullptr);
+        _exit(127);
+    }
+    if (pid < 0) return -1;
+    if (verbose_) std::cerr << "frag: opening a " << cfg_.desktop << " desktop window\n";
+    for (int i = 0; i < 60; ++i) {
+        if (wine_cmd({"C:\\windows\\fragdesk.exe", cfg_.desktop}) == 0) return pid;
+        if (waitpid(pid, nullptr, WNOHANG) == pid) break;
+        usleep(250 * 1000);
+    }
+    std::cerr << "frag: warning: the " << cfg_.desktop << " desktop window did not appear; "
+              << "the game may see the full screen\n";
+    return pid;
 }
 
 }  // namespace frag

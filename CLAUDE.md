@@ -20,6 +20,8 @@ per-game packaging and 9x-specific fixes around it. Games only, not general apps
 - `src/wine.*` — prefix creation, drive symlinks, registry (version + drive types), launching.
 - `src/disc.*` — CD images: ISO9660/Joliet reader for .iso, .cue/.bin, raw .bin/.img.
 - `src/midi.*` — starts/stops FluidSynth around a game run.
+- `src/display.*` — restores the host screen mode (xrandr) after a game.
+- `helpers/` — FRAG's own Windows helper programs, built into `build/dlls`.
 - `src/main.cpp` — CLI: `frag run`, `frag prefix`, `--version`.
 - `third_party/` — Wine-derived Windows DLLs FRAG builds and installs into prefixes.
 - `tests/win32`, `tests/win16` — tiny Windows programs built with MinGW and Open Watcom.
@@ -124,6 +126,23 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   args). A missing exe's error lists setup/install/autorun.exe found up to 3 levels
   deep. Both covered by `disc_image`.
 
+- Screen mode: `ScreenModeGuard` saves each connected output's mode from
+  `xrandr --query` and resets changed ones after the game. FRAG installs no-op
+  handlers for SIGINT/SIGTERM/SIGHUP during the run (not SIG_IGN, which Wine would
+  inherit) so Ctrl+C kills the game but FRAG survives to clean up. Xvfb can't
+  switch modes, so the restore itself is only verified on real desktops.
+- `[wine] desktop = WxH` (Wine virtual desktop). Registry alone (Explorer\Desktop +
+  Desktops\Default) did NOT work in FRAG prefixes: every Wine process creates the
+  "Default" desktop at startup if missing (win32u `winstation_init`, flags 0 =
+  ordinary, screen-sized), and only explorer creates it virtual
+  (DF_WINE_CREATE_DESKTOP). Stock prefixes win the race only because
+  winemenubuilder runs at boot; FRAG disables it. So `start_desktop()` runs
+  `wine explorer /desktop=Default,WxH` first, `AppDefaults\{start.exe,fragdesk.exe}
+  \Explorer\Desktop=FragProbe` keeps the launcher and the probe off "Default",
+  and `helpers/fragdesk.c` (OpenDesktop "Default" + SetThreadDesktop + metrics) is
+  polled until ready. Explorer is killed after the game. `win32_desktop` test,
+  5/5 runs pass (the race failed 2/3 without the start.exe key).
+
 ## Game notes
 
 Real games tested on the owner's machine (Ubuntu, Wine 9.0). Feed these into the
@@ -169,10 +188,25 @@ compatibility database later.
   - Runs from an .iso of its disc (`[drive D] image = ...`, label/serial automatic).
   - Open: intro video glitches for a few seconds.
 
-- **Need for Speed III: Hot Pursuit (1998)** — in progress. Installer
-  (`setup.exe` in a subfolder, lower case) showed "Could not get 'HardWareKey' value"
-  from `3dsetup` (Wine bug 7115: Win9x mode, empty HKEY_DYN_DATA). FRAG now fills
-  in a display device; awaiting retest on the owner's machine.
+- **Need for Speed III: Hot Pursuit (1998)** — in progress.
+  - Installer (`setup.exe` in a subfolder, lower case) showed "Could not get
+    'HardWareKey' value" from `3dsetup` (Wine bug 7115: Win9x mode, empty
+    HKEY_DYN_DATA). FIXED by FRAG's Win9x hardware entries; confirmed (installs).
+  - Game then says "The Microsoft DirectX 5 drivers must be installed for Need For
+    Speed III to run!", also after running the disc's DirectX installer. Cause
+    unknown: candidates are a DirectX version check (registry, ddraw.dll version
+    info) or Direct3D device enumeration. Owner's machine is a VM, so 3D
+    acceleration may be missing. Vogons: 3dsetup offers only software rendering
+    on modern systems; Lutris uses nGlide (Glide wrapper).
+- **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
+  afterwards (terminal had to be closed). Game: "Unable to set message drain"
+  (DirectShow `IVideoWindow::put_MessageDrain`, i.e. the intro video's graph
+  failed; Indeo video). Known workaround on Windows too: `args = -novideo`.
+  With it the game starts but shows only a black screen and had to be killed,
+  leaving the host at the game's resolution (now handled by ScreenModeGuard).
+- Owner's machine: Ubuntu in VMware with VMware Tools; `glxinfo -B` says
+  "Accelerated: no" although 3D acceleration is enabled in the VM settings. Likely
+  blocks every Direct3D game (NFS3, LEGO Racers). Investigating.
 
 ## Roadmap
 

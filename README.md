@@ -94,6 +94,8 @@ them only when you need them:
 # binary  = /path/to/wine      # a specific Wine build (default: wine on your PATH,
                                # or $FRAG_WINE if set)
 # host_drive = yes             # show your whole Linux filesystem as Z: (default: no)
+# desktop = 800x600            # run the game in a window of this size instead of
+                               # full screen; it can't change your screen's mode
 
 [drive D]
 # type  = cdrom                # hd (default) or cdrom; use cdrom for CD contents
@@ -129,6 +131,14 @@ application menu. Start games with `frag run`.
 
 Windows paths are matched case-insensitively, like on Windows, so
 `D:\SETUP.EXE` finds `setup.exe`. The game starts in its exe's directory.
+
+## Screen modes
+
+Full-screen games of this era switch your screen to their own resolution, often
+640x480. When a game exits, even if it crashed or you stopped it with Ctrl+C,
+FRAG puts the screen back the way it was (using `xrandr`). To keep a game from
+touching your screen at all, set `desktop = 800x600` (or another size) under
+`[wine]`: the game then runs inside a window of that size, like in DOSBox.
 
 ## CD images
 
