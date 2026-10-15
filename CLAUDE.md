@@ -204,9 +204,12 @@ compatibility database later.
   failed; Indeo video). Known workaround on Windows too: `args = -novideo`.
   With it the game starts but shows only a black screen and had to be killed,
   leaving the host at the game's resolution (now handled by ScreenModeGuard).
-- Owner's machine: Ubuntu in VMware with VMware Tools; `glxinfo -B` says
-  "Accelerated: no" although 3D acceleration is enabled in the VM settings. Likely
-  blocks every Direct3D game (NFS3, LEGO Racers). Investigating.
+- Owner's machine: Ubuntu 24.04 (X11 session) in VMware Workstation 15.5.7 on
+  Windows 10, RTX 2080. Guest GL: renderer "SVGA3D; build: RELEASE; LLVM;", OpenGL
+  3.3 core, Mesa 25.2.8; vmwgfx reports 3D, dx, SM4_1. That is VMware's host-GPU
+  path (software would be "llvmpipe" with GL 4.5); glxinfo's "Accelerated: no" and
+  "Video memory: 1MB" are how Mesa's svga driver reports itself, not a fault. GL 3.3
+  is enough for wined3d's Direct3D 1-9. (Workstation 17 would give GL 4.3.)
 
 ## Roadmap
 
