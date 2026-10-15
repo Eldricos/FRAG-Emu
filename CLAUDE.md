@@ -18,6 +18,8 @@ per-game packaging and 9x-specific fixes around it. Games only, not general apps
 
 - `src/config.*` — `frag.conf` parser (`[game]`, `[wine]`, `[drive X]`, `[dlls]`).
 - `src/wine.*` — prefix creation, drive symlinks, registry (version + drive types), launching.
+- `src/disc.*` — CD images: ISO9660/Joliet reader for .iso, .cue/.bin, raw .bin/.img.
+- `src/midi.*` — starts/stops FluidSynth around a game run.
 - `src/main.cpp` — CLI: `frag run`, `frag prefix`, `--version`.
 - `third_party/` — Wine-derived Windows DLLs FRAG builds and installs into prefixes.
 - `tests/win32`, `tests/win16` — tiny Windows programs built with MinGW and Open Watcom.
@@ -95,6 +97,19 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   `FRAG_SEQ_CLIENTS`. Confirmed on the owner's machine with Classic Board Games: music
   plays and FluidSynth is gone after the game exits.
 
+- CD images (`[drive X] image = ...`): `prepare_disc_drives` (in `frag run` only,
+  before the prefix) unpacks the data track once into `<data_dir>/discs/<stem>-<hash
+  of path+size+mtime>` (via `.partial` + rename) and sets the drive's path; type
+  defaults to cdrom. Joliet tree and label when present (as Wine and Windows use
+  for real discs), else ISO9660 with ";1" and trailing "." stripped. Files are
+  0444 (CD files are read-only on Windows) with the record's date. Serial = byte
+  sums of that descriptor in Win9x order (NT order for NT versions), written to
+  `.windows-serial`, which Wine reads for folder drives. Raw sectors: sync pattern
+  detection, MODE1 data at 16, MODE2 XA at 24. CUE: first non-AUDIO track, INDEX 01.
+  Not yet: CD audio (Wine's mcicda needs real CD ioctls), multi-session, .mdf/.nrg/.ccd.
+  `disc_image` test builds an ISO with genisoimage (skips if missing) and a
+  .cue/.bin with python3.
+
 ## Game notes
 
 Real games tested on the owner's machine (Ubuntu, Wine 9.0). Feed these into the
@@ -142,7 +157,8 @@ compatibility database later.
 ## Roadmap
 
 1. ~~Skeleton: launcher, per-game prefix, drive mounting, Win16 + Win32 smoke tests.~~
-2. Disc images: mount ISO/CUE (likely via fuseiso or our own ISO9660 reader), CD audio.
+2. Disc images: ~~.iso/.cue/.bin with label and serial~~ (unpacked, own reader).
+   Still: CD audio tracks, other formats (.mdf/.nrg/.ccd), maybe FUSE instead of unpacking.
 3. Graphics: bundle and configure cnc-ddraw, DXVK (D3D8/9), a Glide wrapper; per-game choice.
 4. Game-focused tests: DirectDraw 8-bit palette mode, DirectSound, joystick, timing.
 5. Compatibility database: known-good settings per game, shipped with FRAG.

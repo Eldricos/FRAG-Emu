@@ -67,6 +67,17 @@ exe  = D:\GAME.EXE             # the game's exe, on the drive below
 path = game                    # folder with the game files, relative to this file
 ```
 
+Or straight from a CD image, which needs no folder and no label setting:
+
+```ini
+[game]
+name = Example Game
+exe  = D:\SETUP.EXE
+
+[drive D]
+image = Example Game.cue       # .iso, .cue (with its .bin) or a raw .bin/.img
+```
+
 Only `name` and `exe` are required. All other settings are optional; uncomment
 them only when you need them:
 
@@ -82,8 +93,11 @@ them only when you need them:
 
 [drive D]
 # type  = cdrom                # hd (default) or cdrom; use cdrom for CD contents
+                               # (images default to cdrom)
 # label = GAMECD               # the CD's volume label, for games that check it
-                               # (stored as .windows-label in the drive's folder)
+                               # (stored as .windows-label in the drive's folder;
+                               # images default to their own label)
+# serial = 1A2B3C4D            # the volume serial number (images: their own)
 
 # [sound]
 # midi_synth = auto            # auto (default): start FluidSynth if no MIDI synth runs; off
@@ -111,6 +125,19 @@ application menu. Start games with `frag run`.
 
 Windows paths are matched case-insensitively, like on Windows, so
 `D:\SETUP.EXE` finds `setup.exe`. The game starts in its exe's directory.
+
+## CD images
+
+A drive can be a CD image instead of a folder: `.iso`, a `.cue` sheet with its
+`.bin` file(s), or a raw `.bin`/`.img`. The drive is then a CD-ROM with the disc's
+own volume label and the serial number Windows would report for it, so games
+that check for their CD find it. Long file names (Joliet) work as on Windows.
+
+On the first run FRAG unpacks the image's files into `discs/` in FRAG's data
+folder; later runs reuse them, and a changed image is unpacked again. This needs
+as much free space as the image. Delete a folder there to reclaim the space.
+
+CD audio tracks are not played yet; games that use them for music are silent.
 
 ## MIDI music
 

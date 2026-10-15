@@ -14,9 +14,12 @@ namespace fs = std::filesystem;
 // One mounted Windows drive, e.g. D: pointing at a folder with the CD contents.
 struct Drive {
     char letter = 0;     // upper-case 'D'
-    fs::path path;       // absolute host path
-    std::string type;    // "hd" or "cdrom"
-    std::string label;   // optional volume label
+    fs::path path;       // absolute host path (for an image: its unpacked folder, set at run time)
+    fs::path image;      // CD image (.iso, .cue, .bin, .img) instead of a folder
+    std::string type = "hd";  // "hd" or "cdrom"; images default to "cdrom"
+    std::string label;   // optional volume label; images default to their own
+    std::string serial;  // optional volume serial number, 8 hex digits; images default to their own
+    bool type_set = false;
 };
 
 struct GameConfig {
