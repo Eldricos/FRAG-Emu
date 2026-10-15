@@ -26,6 +26,12 @@ if(MINGW32_CC)
                    ${CMAKE_CURRENT_BINARY_DIR}/stale-drive/hello32.conf)
   set_tests_properties(win32_stale_host_drive PROPERTIES TIMEOUT 300)
 
+  # Games run from CD images (.iso, .cue/.bin), with the image's label and serial.
+  add_test(NAME disc_image
+           COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/disc_image_test.sh $<TARGET_FILE:frag>
+                   ${TEST_CD}/hello32.exe ${CMAKE_CURRENT_BINARY_DIR}/disc-image)
+  set_tests_properties(disc_image PROPERTIES TIMEOUT 600 SKIP_RETURN_CODE 77)
+
   # FluidSynth is started for a game's MIDI music and stopped afterwards.
   configure_file(conf/hello32.conf.in ${CMAKE_CURRENT_BINARY_DIR}/midi-synth/hello32.conf @ONLY)
   add_test(NAME midi_synth

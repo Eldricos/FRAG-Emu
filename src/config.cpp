@@ -67,8 +67,9 @@ GameConfig load_config(const fs::path& path) {
                 std::string letter = trim(section.substr(5));
                 if (letter.size() != 1 || letter[0] < 'a' || letter[0] > 'y' || letter[0] == 'c')
                     fail(file, lineno, "drive section must be [drive X] with X in A-Y, not C");
-                cfg.drives.push_back(Drive{static_cast<char>(std::toupper(letter[0])), {}, "hd", {}});
+                cfg.drives.emplace_back();
                 drive = &cfg.drives.back();
+                drive->letter = static_cast<char>(std::toupper(letter[0]));
                 section = "drive";
             } else if (section != "game" && section != "wine" && section != "dlls" &&
                        section != "sound") {
@@ -108,7 +109,15 @@ GameConfig load_config(const fs::path& path) {
             cfg.dll_overrides[lower(key)] = lower(value);
         } else if (section == "drive") {
             if (key == "path") drive->path = fs::weakly_canonical(base / value);
-            else if (key == "type") {
+            else if (key == "image") drive->image = fs::weakly_canonical(base / value);
+            else if (key == "serial") {
+                drive->serial = lower(value);
+                if (drive->serial.size() > 2 && drive->serial.rfind("0x", 0) == 0) drive->serial.erase(0, 2);
+                if (drive->serial.empty() || drive->serial.size() > 8 ||
+                    drive->serial.find_first_not_of("0123456789abcdef") != std::string::npos)
+                    fail(file, lineno, "serial must be up to 8 hex digits, e.g. 1A2B3C4D");
+            } else if (key == "type") {
+                drive->type_set = true;
                 drive->type = lower(value);
                 if (drive->type != "hd" && drive->type != "cdrom")
                     fail(file, lineno, "drive type must be hd or cdrom");
@@ -121,9 +130,16 @@ GameConfig load_config(const fs::path& path) {
 
     if (cfg.name.empty()) throw std::runtime_error(file.string() + ": [game] name is required");
     if (cfg.exe.empty()) throw std::runtime_error(file.string() + ": [game] exe is required");
-    for (const auto& d : cfg.drives) {
+    for (auto& d : cfg.drives) {
+        const std::string where = file.string() + ": drive " + d.letter + ": ";
+        if (!d.image.empty()) {
+            if (!d.path.empty()) throw std::runtime_error(where + "set either path or image, not both");
+            if (!fs::is_regular_file(d.image)) throw std::runtime_error(where + "image not found: " + d.image.string());
+            if (!d.type_set) d.type = "cdrom";
+            continue;
+        }
         if (d.path.empty())
-            throw std::runtime_error(file.string() + ": drive " + d.letter + ": has no path");
+            throw std::runtime_error(where + "has no path or image");
         if (!fs::is_directory(d.path))
             throw std::runtime_error(file.string() + ": drive " + d.letter +
                                      ": path is not a directory: " + d.path.string());

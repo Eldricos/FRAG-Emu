@@ -12,6 +12,7 @@ endif()
 add_executable(frag
   src/main.cpp
   src/config.cpp
+  src/disc.cpp
   src/midi.cpp
   src/wine.cpp
 )

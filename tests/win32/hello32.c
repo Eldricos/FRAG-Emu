@@ -5,12 +5,14 @@
  *   - the program sees itself and its working directory on the expected drive,
  *   - a window can be created and a message loop runs to completion.
  *   - the host filesystem drive Z: is hidden,
- *   - optionally, that its drive is a CD-ROM with the expected volume label.
- * Usage: hello32.exe <expected drive letter> [<expected CD label>]
+ *   - optionally, that its drive is a CD-ROM with the expected volume label,
+ *     serial number (hex) and a file at the given path.
+ * Usage: hello32.exe <expected drive letter> [<expected CD label> [<serial> [<file>]]]
  * Exit code is the number of failed checks.
  */
 #include <windows.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static int failures;
@@ -45,6 +47,9 @@ int main(int argc, char **argv)
 {
     char expected = argc > 1 ? argv[1][0] : 'D';
     const char *cd_label = argc > 2 ? argv[2] : NULL;
+    const char *cd_serial = argc > 3 ? argv[3] : NULL;
+    const char *cd_file = argc > 4 ? argv[4] : NULL;
+    DWORD serial;
     char buf[MAX_PATH], root[] = "?:\\", label[64];
     OSVERSIONINFOA ver;
     WNDCLASSA wc;
@@ -73,9 +78,15 @@ int main(int argc, char **argv)
         root[0] = expected;
         check(GetDriveTypeA(root) == DRIVE_CDROM, "drive is a CD-ROM");
         label[0] = 0;
-        GetVolumeInformationA(root, label, sizeof(label), NULL, NULL, NULL, NULL, 0);
-        printf("label: %s\n", label);
+        serial = 0;
+        GetVolumeInformationA(root, label, sizeof(label), &serial, NULL, NULL, NULL, 0);
+        printf("label: %s, serial: %08lx\n", label, serial);
         check(strcmp(label, cd_label) == 0, "CD has the expected volume label");
+        if (cd_serial) check(serial == strtoul(cd_serial, NULL, 16), "CD has the expected serial number");
+        if (cd_file) {
+            printf("file: %s\n", cd_file);
+            check(GetFileAttributesA(cd_file) != INVALID_FILE_ATTRIBUTES, "file on the CD is found");
+        }
     }
 
     memset(&wc, 0, sizeof(wc));

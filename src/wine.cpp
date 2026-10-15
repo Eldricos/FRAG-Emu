@@ -232,6 +232,8 @@ void WinePrefix::sync_drives() {
         // Wine reads a folder drive's volume label from .windows-label in its root.
         // Games check it to find their CD.
         if (!d.label.empty()) write_if_changed(d.path / ".windows-label", d.label);
+        // ... and its serial number from .windows-serial (hex). Some games check it.
+        if (!d.serial.empty()) write_if_changed(d.path / ".windows-serial", d.serial);
     }
     for (char l : previous)
         if (!current.count(l)) {

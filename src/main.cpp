@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // frag: launches Windows 3.x/9x games from a per-game frag.conf.
 #include "config.h"
+#include "disc.h"
 #include "midi.h"
 #include "wine.h"
 
@@ -68,6 +69,7 @@ int main(int argc, char** argv) {
             std::cout << prefix.path().string() << '\n';
             return 0;
         }
+        frag::prepare_disc_drives(cfg, opts.verbose);
         prefix.prepare();
         frag::MidiSynth synth(cfg, prefix.path() / "fluidsynth.log", opts.verbose);
         return prefix.run(opts);
