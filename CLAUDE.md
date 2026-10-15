@@ -118,9 +118,14 @@ compatibility database later.
   FluidSynth`, but Wine names the port `FluidSynth - FluidSynth`; midimap logs "Registry
   glitch" and falls back to device 0 (FluidSynth here, so harmless). The probe now warns
   about this. `+loaddll` shows no Miles or DirectMusic: only builtin winmm and dsound,
-  plus its own native smackw32. Next: relay limited to winmm/dsound/smackw32 and
-  `user32.MessageBoxA` (`RelayInclude` in `HKCU\Software\Wine\Debug`) to find the
-  call that fails just before the error box. InstallShield with 16-bit bootstrap
+  plus its own native smackw32. A relay limited to them (`RelayInclude` in
+  `HKCU\Software\Wine\Debug` needs `dll.*` entries; a bare `winmm` is read as a
+  function name) shows DirectSoundCreate succeeding, then `acmDriverEnum` with a
+  callback at 0x578980 that calls `acmDriverDetailsA` on all 6 drivers (Wine's
+  imaadp32, msadp32, msg711, l3codeca, msgsm32, and msacm32's internal PCM), then
+  the error box at once. So the game looks for an ACM codec it doesn't find among
+  Wine's: either one Wine lacks, or a Wine driver whose details differ from Windows.
+  Next: disassemble the callback to see what it checks. InstallShield with 16-bit bootstrap
   (`Win16Mutex` timeout + ignored exceptions, harmless).
 
 ## Roadmap
