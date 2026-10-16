@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <cstdio>
 #include <functional>
 #include <csignal>
 #include <cstdlib>
@@ -274,9 +275,36 @@ void WinePrefix::prepare() {
         if (int rc = wine_cmd({"wineboot", "--init"}); rc != 0)
             throw std::runtime_error("wineboot failed with exit code " + std::to_string(rc));
     }
+    update_for_wine_version();
     sync_drives();
     install_dlls();
     write_registry();
+}
+
+// A prefix made by one Wine version and run with another needs `wineboot -u` to
+// get the new version's DLLs and registry. Wine usually does this by itself, but
+// a Wine 9.0 prefix copied for Wine 11 wasn't updated, and advapi32 then aborted
+// on a missing cryptbase.dll. So FRAG records the version and updates on change.
+void WinePrefix::update_for_wine_version() {
+    std::string version;
+    if (FILE* p = popen(("'" + wine_ + "' --version 2>/dev/null").c_str(), "r")) {
+        char buf[256];
+        if (fgets(buf, sizeof(buf), p)) version = buf;
+        pclose(p);
+    }
+    while (!version.empty() && std::isspace(static_cast<unsigned char>(version.back()))) version.pop_back();
+    if (version.empty()) return;
+    const fs::path stamp = path_ / ".frag-wine-version";
+    std::string old = read_file(stamp);
+    while (!old.empty() && std::isspace(static_cast<unsigned char>(old.back()))) old.pop_back();
+    if (old == version) return;
+    if (!old.empty()) {
+        std::cerr << "frag: updating the prefix from " << old << " to " << version << '\n';
+        if (int rc = wine_cmd({"wineboot", "-u"}); rc != 0)
+            throw std::runtime_error("wineboot -u failed with exit code " + std::to_string(rc));
+        restart_wineserver();
+    }
+    write_if_changed(stamp, version + "\n");
 }
 
 // Copies FRAG's DLLs into the folder Wine loads 32-bit system DLLs from: syswow64 in

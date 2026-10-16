@@ -178,6 +178,11 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   don't load krnl386. Keep win98 for installers/games that check for 9x, but
   consider winxp for games that run on XP.
 
+- Wine version changes: `update_for_wine_version()` stores `wine --version` in
+  `<prefix>/.frag-wine-version` and runs `wineboot -u` when it changes (not for a
+  new prefix). A Wine 9.0 prefix copied for WineHQ Wine 11 wasn't auto-updated and
+  aborted: "module not found for forward 'cryptbase.SystemFunction036'".
+  `wine_version_update` uses a wrapper reporting another version.
 - Crashes: FRAG sets `HKCU\Software\Wine\WineDbg\ShowCrashDialog=0`, so winedbg
   prints the register dump, backtrace and modules to the terminal instead of a
   dialog (NFS III's vanished before it could be read). Checked by hand with a
@@ -282,8 +287,9 @@ compatibility database later.
     and the DINPUT input thread its WH_MOUSE_LL hook. In Wine 9.0 dinput's
     cbt_hook_proc does SendMessageW(di_em_win, NOTIFY_FOREGROUND_LOST) to the
     input thread; current master handles foreground loss locally instead
-    (`handle_foreground_lost`). Next: try a newer Wine (WineHQ wine-stable in
-    /opt/wine-stable, `[wine] binary`). Quitting from the menu also froze once.
+    (`handle_foreground_lost`). Next: try a newer Wine (WineHQ wine-stable 11.0 in
+    /opt/wine-stable, `[wine] binary = /opt/wine-stable/bin/wine`, on a copy of the
+    prefix). Quitting from the menu also froze once.
     (Vogons: 3dsetup offers only software rendering; game loads softtria.dll.)
 - **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"

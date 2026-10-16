@@ -93,6 +93,13 @@ if(MINGW32_CC)
                    ${CMAKE_CURRENT_BINARY_DIR}/deadlock.conf)
   set_tests_properties(interrupt_frozen_game PROPERTIES TIMEOUT 300)
 
+  # A prefix is updated once when the Wine version changes.
+  configure_file(conf/hello32.conf.in ${CMAKE_CURRENT_BINARY_DIR}/wine-update/hello32.conf @ONLY)
+  add_test(NAME wine_version_update
+           COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/wine_update_test.sh $<TARGET_FILE:frag>
+                   ${CMAKE_CURRENT_BINARY_DIR}/wine-update/hello32.conf)
+  set_tests_properties(wine_version_update PROPERTIES TIMEOUT 600)
+
   # Games find the MS ADPCM codec by its Windows name; FRAG ships a renamed copy.
   set(ACM_CD ${CMAKE_CURRENT_BINARY_DIR}/acm-cd)
   file(MAKE_DIRECTORY ${ACM_CD})
