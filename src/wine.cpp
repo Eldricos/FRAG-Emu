@@ -521,7 +521,25 @@ void WinePrefix::load_win9x_hardware() const {
         std::cerr << "frag: warning: loading Windows 9x hardware info failed (exit code " << rc << ")\n";
 }
 
+// 32-bit games decode video (Indeo, Cinepak, MPEG...) through 32-bit GStreamer
+// plugins, and the decoders are in the libav plugin, which distributions don't
+// install for 32-bit by default. Without it LEGO Racers only said "Unable to set
+// message drain". Checks the Debian/Ubuntu and Arch locations.
+static void warn_missing_video_decoders() {
+    for (const char* dir : {"/usr/lib/i386-linux-gnu/gstreamer-1.0", "/usr/lib32/gstreamer-1.0"}) {
+        if (!fs::is_directory(dir)) continue;
+        if (fs::exists(fs::path(dir) / "libgstlibav.so")) return;
+        std::cerr << "frag: note: 32-bit GStreamer has no libav plugin, so games' videos may not play; "
+                  << (std::string(dir).find("i386") != std::string::npos
+                          ? "install it with: sudo apt install gstreamer1.0-libav:i386"
+                          : "install lib32-gst-libav")
+                  << '\n';
+        return;
+    }
+}
+
 int WinePrefix::run(const RunOptions& opts) {
+    warn_missing_video_decoders();
     // Windows paths go to Wine as-is so the program sees itself on the right drive.
     std::string exe = cfg_.exe;
     std::vector<std::string> autorun_args;
@@ -569,6 +587,11 @@ int WinePrefix::run(const RunOptions& opts) {
     for (const auto& [dll, mode] : cfg_.dll_overrides) dlls[dll] = mode;
     std::string overrides = kBaseOverrides;
     for (const auto& [dll, mode] : dlls) overrides += ";" + dll + "=" + mode;
+
+    // Leftovers of an earlier run (a game that froze and was closed, say) keep the
+    // prefix's wineserver and desktop alive; the game would join that desktop, and
+    // [wine] desktop couldn't replace it. Start every run from a clean slate.
+    restart_wineserver();
 
     // The desktop first: any Wine program (regedit included) would otherwise
     // bring up the desktop without the configured size.

@@ -142,6 +142,8 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   and `helpers/fragdesk.c` (OpenDesktop "Default" + SetThreadDesktop + metrics) is
   polled until ready. Explorer is killed after the game. `win32_desktop` test,
   5/5 runs pass (the race failed 2/3 without the start.exe key).
+  `run()` restarts the prefix's wineserver first: a frozen earlier run (NFS III)
+  left its processes and full-size desktop behind, so the desktop never appeared.
 
 - Video memory: wined3d takes VRAM from the GL driver (WGL_WINE_query_renderer).
   VMware's SVGA3D reports 1 MB, so creating any primary surface failed with
@@ -151,6 +153,12 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   from confusing old games; Wine itself caps at LONG_MAX for pre-Vista versions).
   ddraw's GetAvailableVidMem reports the total minus the screen's framebuffer.
   `win32_video_memory` checks it; with 4 MB it reproduces 0x8876017c exactly.
+
+- Video playback (DirectShow/quartz) decodes through winegstreamer, i.e. the host's
+  GStreamer for the game's bitness. 32-bit games need `gstreamer1.0-libav:i386`
+  (Indeo, Cinepak...), not installed by default on Ubuntu; `run()` prints a note
+  when `/usr/lib/i386-linux-gnu/gstreamer-1.0` (or Arch's `/usr/lib32/...`) lacks
+  `libgstlibav.so`. Checked by hand here: note shown without, gone with the package.
 
 ## Game notes
 
@@ -204,9 +212,25 @@ compatibility database later.
   - Game then says "The Microsoft DirectX 5 drivers must be installed for Need For
     Speed III to run!". Trace: reads its "D3D Device" setting, DirectDrawCreate
     succeeds, then wined3d logs "Out of adapter memory" twice, then the box. Same
-    cause as LEGO Racers: VMware's GL driver reports 1 MB VRAM. Fixed by FRAG's
-    VideoMemorySize default; awaiting retest. (Vogons: 3dsetup offers only software
-    rendering on modern systems; Lutris uses nGlide.)
+    cause as LEGO Racers: VMware's GL driver reports 1 MB VRAM. FIXED by FRAG's
+    VideoMemorySize default; confirmed (game loads, menus work).
+  - Open: deadlock on the loader lock. Repeating "err:sync:RtlpWaitForCriticalSection
+    section ... loader_section wait timed out in thread 01a8, blocked by 01a4".
+    Seen while loading a race and when returning to the menu; also with
+    `taskset -c 0`. Attaching winedbg (`bt all`) hangs too (needs the loader lock).
+    Relay (`+relay,+loaddll`, RelayInclude `dsound.*`): eacsnd.dll's DirectSoundCreate
+    calls all return (not from DllMain; eacsnd has no DllMain). 01a4 is a game thread
+    (proc 004DF730) exiting: THREAD_DETACH runs through softtria, ws2_32, opengl32,
+    ole32, combase, rpcrt4, then enters imm32 and never returns; 01a8 is a new thread
+    stuck before its first THREAD_ATTACH. The game loads krnl386.exe16, system.drv16,
+    comm.drv16 (16-bit thunks). Matches Wine bug 52511 / MR 1456 "imm32: Prevent
+    deadlock on unload": imm32's thread cleanup vs krnl386's Win16 lock, taken in
+    opposite order to the loader lock. imm32's DllMain THREAD_DETACH is unchanged in
+    current master (`IMM_FreeThreadData`), so not fixed upstream.
+    `[dlls] imm32 = d` does NOT work: comctl32 imports imm32, DINPUT imports
+    comctl32, nfs3.exe imports DINPUT (c0000135). Next: find what pulls in krnl386
+    (16-bit thunks) in nfs3.exe / eacsnd.dll / softtria.dll.
+    (Vogons: 3dsetup offers only software rendering; game loads softtria.dll.)
 - **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"
   (DirectShow `IVideoWindow::put_MessageDrain`, i.e. the intro video's graph
@@ -215,7 +239,12 @@ compatibility database later.
   leaving the host at the game's resolution (now handled by ScreenModeGuard).
   In a 800x600 FRAG desktop it then said "Unable to create primary drawing surface
   error 8876017c" (DDERR_OUTOFVIDEOMEMORY) with "Out of adapter memory": the 1 MB
-  VRAM report. Fixed by FRAG's VideoMemorySize default; awaiting retest.
+  VRAM report. FIXED by FRAG's VideoMemorySize default; confirmed (game loads).
+  - Intro videos: Indeo 5 AVIs (`introcmp.avi` etc., 640x480, 15 fps, PCM audio).
+    "Unable to set message drain" was missing 32-bit GStreamer libav; with
+    `gstreamer1.0-libav:i386` (+ plugins-bad/ugly :i386) they play. Remaining
+    console noise: GStreamer-Video-CRITICAL `gst_caps_is_fixed`, quartz
+    DSoundRender/BaseMemAllocator/send_buffer errs (probably on skipping a video).
 - Owner's machine: Ubuntu 24.04 (X11 session) in VMware Workstation 15.5.7 on
   Windows 10, RTX 2080. Guest GL: renderer "SVGA3D; build: RELEASE; LLVM;", OpenGL
   3.3 core, Mesa 25.2.8; vmwgfx reports 3D, dx, SM4_1. That is VMware's host-GPU
