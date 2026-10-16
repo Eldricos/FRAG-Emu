@@ -586,7 +586,13 @@ int WinePrefix::run(const RunOptions& opts) {
         try {
             host_exe = to_host_path(exe);
         } catch (const std::runtime_error& e) {
-            throw std::runtime_error(e.what() + exe_not_found_hint());
+            std::string hint = exe_not_found_hint();
+            if (std::toupper(static_cast<unsigned char>(exe[0])) == 'C')
+                hint = "\nC: is this game's own prefix, " + (path_ / "drive_c").string() +
+                       ", and the game isn't installed there. Each [game] name has its own prefix: "
+                       "install the game under this name first, or use the name it was installed "
+                       "under." + hint;
+            throw std::runtime_error(e.what() + hint);
         }
     } else {
         host_exe = fs::weakly_canonical(cfg_.file.parent_path() / exe);
