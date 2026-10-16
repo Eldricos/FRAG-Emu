@@ -321,7 +321,7 @@ void WinePrefix::sync_drives() {
 void WinePrefix::write_registry() {
     std::ostringstream out;
     out << "REGEDIT4\n"
-        << "; frag settings v8 (64-bit registry view)\n\n"
+        << "; frag settings v9 (64-bit registry view)\n\n"
         << "[HKEY_CURRENT_USER\\Software\\Wine]\n"
         << "\"Version\"=\"" << cfg_.windows_version << "\"\n\n"
         << "[HKEY_LOCAL_MACHINE\\Software\\Wine\\Drives]\n";
@@ -335,6 +335,10 @@ void WinePrefix::write_registry() {
     out << "\n[HKEY_LOCAL_MACHINE\\System\\MountedDevices]\n";
     for (const auto& d : cfg_.drives) out << "\"\\\\DosDevices\\\\" << d.letter << ":\"=-\n";
     out << '\n';
+    // Crash reports go to the terminal (register dump, backtrace, threads)
+    // instead of a dialog that may vanish before it can be read.
+    out << "[HKEY_CURRENT_USER\\Software\\Wine\\WineDbg]\n"
+        << "\"ShowCrashDialog\"=dword:00000000\n\n";
     // Direct3D/DirectDraw video memory: Wine asks the OpenGL driver, and some
     // report nonsense. VMware's SVGA3D driver says 1 MB, so not even a 640x480
     // screen fits: LEGO Racers fails with DDERR_OUTOFVIDEOMEMORY and NFS III
