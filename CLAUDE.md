@@ -213,14 +213,22 @@ compatibility database later.
     cause as LEGO Racers: VMware's GL driver reports 1 MB VRAM. FIXED by FRAG's
     VideoMemorySize default; confirmed (game loads, menus work).
   - Open: deadlock on the loader lock. Repeating "err:sync:RtlpWaitForCriticalSection
-    section ... loader_section wait timed out in thread 018c, blocked by 0184".
-    Seen while loading a race, and (another run) when returning to the menu after a
-    race; also with `taskset -c 0`, so not a multi-core race. Likely a DLL unloaded
-    on that transition whose DllMain waits for its worker thread, which needs the
-    loader lock to exit; Windows 9x let that through, NT/Wine deadlock. Attaching
-    winedbg (`bt all`) hangs too (attaching needs the loader lock). Next: +loaddll to
-    see which module is loaded/unloaded just before. (Vogons: 3dsetup offers only
-    software rendering on modern systems; Lutris uses nGlide.)
+    section ... loader_section wait timed out in thread 01a8, blocked by 01a4".
+    Seen while loading a race and when returning to the menu; also with
+    `taskset -c 0`. Attaching winedbg (`bt all`) hangs too (needs the loader lock).
+    Relay (`+relay,+loaddll`, RelayInclude `dsound.*`): eacsnd.dll's DirectSoundCreate
+    calls all return (not from DllMain; eacsnd has no DllMain). 01a4 is a game thread
+    (proc 004DF730) exiting: THREAD_DETACH runs through softtria, ws2_32, opengl32,
+    ole32, combase, rpcrt4, then enters imm32 and never returns; 01a8 is a new thread
+    stuck before its first THREAD_ATTACH. The game loads krnl386.exe16, system.drv16,
+    comm.drv16 (16-bit thunks). Matches Wine bug 52511 / MR 1456 "imm32: Prevent
+    deadlock on unload": imm32's thread cleanup vs krnl386's Win16 lock, taken in
+    opposite order to the loader lock. imm32's DllMain THREAD_DETACH is unchanged in
+    current master (`IMM_FreeThreadData`), so not fixed upstream.
+    Candidate workaround: `[dlls] imm32 = d` (Western 9x games never use IMEs).
+    hello32 (window + message loop + timer) passes with it; imm32 isn't loaded at
+    all. Awaiting the owner's test; if it works, make it FRAG's default.
+    (Vogons: 3dsetup offers only software rendering; game loads softtria.dll.)
 - **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"
   (DirectShow `IVideoWindow::put_MessageDrain`, i.e. the intro video's graph
