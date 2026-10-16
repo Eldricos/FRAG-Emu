@@ -167,6 +167,11 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   don't load krnl386. Keep win98 for installers/games that check for 9x, but
   consider winxp for games that run on XP.
 
+- Crashes: FRAG sets `HKCU\Software\Wine\WineDbg\ShowCrashDialog=0`, so winedbg
+  prints the register dump, backtrace and modules to the terminal instead of a
+  dialog (NFS III's vanished before it could be read). Checked by hand with a
+  thread that reads 0x190.
+
 ## Game notes
 
 Real games tested on the owner's machine (Ubuntu, Wine 9.0). Feed these into the
@@ -242,9 +247,13 @@ compatibility database later.
     win98 default. `[wine] version = winxp` is worse: page fault reading 00000190 at
     004A3AEC (game code) at startup, Wine's crash dialog flashes, then the loader
     lock deadlock again (likely winedbg attaching). So NFS III wants 9x mode.
-    Next: win98 + `[dlls] krnl386.exe16 = d`, which stops kernel32 from loading
-    the Win16 subsystem; checked here that hello32 still reports Windows 98 and
-    passes with it. Awaiting the owner's test.
+    win98 + `[dlls] krnl386.exe16 = d` (kernel32 then doesn't load the Win16
+    subsystem; hello32 still reports Windows 98 and passes) did NOT help: same
+    startup crash, still froze returning to the menu. So the crash is in 9x mode
+    too. Hypothesis: XP run faulted reading 00000190 and the lock was held by
+    thread 0190; Win9x thread IDs were pointers, Wine's are small numbers, so the
+    game may dereference a thread ID; the crashed thread then holds the loader
+    lock while winedbg tries to attach. Next: the terminal crash report.
     (Vogons: 3dsetup offers only software rendering; game loads softtria.dll.)
 - **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"
