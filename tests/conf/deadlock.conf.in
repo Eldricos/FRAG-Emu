@@ -1,0 +1,10 @@
+# A game frozen on the loader lock; interrupt_test.sh presses Ctrl+C.
+[game]
+name = deadlock
+exe = D:\DEADLOCK.EXE
+
+[drive D]
+path = @HW_CD@
+
+[sound]
+midi_synth = off

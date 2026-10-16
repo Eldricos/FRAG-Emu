@@ -140,8 +140,10 @@ Windows paths are matched case-insensitively, like on Windows, so
 ## Screen modes
 
 Full-screen games of this era switch your screen to their own resolution, often
-640x480. When a game exits, even if it crashed or you stopped it with Ctrl+C,
-FRAG puts the screen back the way it was (using `xrandr`). To keep a game from
+640x480. When a game exits, even if it crashed, FRAG puts the screen back the way
+it was (using `xrandr`). If a game freezes, press Ctrl+C in the terminal: FRAG
+stops it (all of its Wine processes) and restores the screen. Press Ctrl+C a
+second time to force it. To keep a game from
 touching your screen at all, set `desktop = 800x600` (or another size) under
 `[wine]`: the game then runs inside a window of that size, like in DOSBox.
 

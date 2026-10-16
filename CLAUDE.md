@@ -127,10 +127,16 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   deep. Both covered by `disc_image`.
 
 - Screen mode: `ScreenModeGuard` saves each connected output's mode from
-  `xrandr --query` and resets changed ones after the game. FRAG installs no-op
-  handlers for SIGINT/SIGTERM/SIGHUP during the run (not SIG_IGN, which Wine would
-  inherit) so Ctrl+C kills the game but FRAG survives to clean up. Xvfb can't
-  switch modes, so the restore itself is only verified on real desktops.
+  `xrandr --query` and resets changed ones after the game. Xvfb can't switch
+  modes, so the restore itself is only verified on real desktops.
+- Ctrl+C / SIGTERM / SIGHUP during a game: `interrupt_handler` counts them (a
+  handler, not SIG_IGN, which Wine would inherit). A game frozen on the loader
+  lock ignores Ctrl+C (Wine needs a new thread for it), so the first one makes
+  `run()` stop the whole prefix (`restart_wineserver`), the second SIGKILLs the
+  game; then the usual cleanup (screen mode, FluidSynth) runs. Before this, NFS
+  III froze, xkill was needed and the host stayed at 640x480.
+  `interrupt_frozen_game` freezes deadlock.exe on the loader lock (DllMain waits
+  for a new thread) and checks frag stops it.
 - `[wine] desktop = WxH` (Wine virtual desktop). Registry alone (Explorer\Desktop +
   Desktops\Default) did NOT work in FRAG prefixes: every Wine process creates the
   "Default" desktop at startup if missing (win32u `winstation_init`, flags 0 =
@@ -253,7 +259,14 @@ compatibility database later.
     too. Hypothesis: XP run faulted reading 00000190 and the lock was held by
     thread 0190; Win9x thread IDs were pointers, Wine's are small numbers, so the
     game may dereference a thread ID; the crashed thread then holds the loader
-    lock while winedbg tries to attach. Next: the terminal crash report.
+    lock while winedbg tries to attach. With the crash dialog off, the startup
+    crash is intermittent (one run none, one run X `BadWindow` on X_CreateWindow
+    after `xrandr_get_screen_resources` failed). Full screen (no `desktop`)
+    freezes the same way returning to the menu, with only the loader-lock message,
+    so the virtual desktop isn't the cause. Since krnl386 off didn't help either,
+    the Win16 lock (bug 52511) is probably not the other side; more likely imm32's
+    THREAD_DETACH waits for another thread (e.g. a cross-thread window message)
+    that itself waits for the loader lock. Next: last relay line of every thread.
     (Vogons: 3dsetup offers only software rendering; game loads softtria.dll.)
 - **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"

@@ -56,6 +56,10 @@ private:
     std::string exe_not_found_hint() const;
 };
 
+// Signal handler for Ctrl+C, SIGTERM and SIGHUP while a game runs: makes
+// WinePrefix::run stop the game's processes (see there).
+void interrupt_handler(int);
+
 // Directory holding all FRAG data: $FRAG_HOME, else $XDG_DATA_HOME/frag, else ~/.local/share/frag.
 fs::path data_dir();
 
