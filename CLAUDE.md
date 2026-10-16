@@ -191,14 +191,28 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   start-up ends in alertable NtContinue, so it runs after DLL init, before the
   entry point; builtin kernel32 has the same address in every process).
   `helpers/fragfix.c` patches kernelbase/kernel32 TerminateThread with a jmp to a
-  version that suspends the thread, sets EIP to a stub that calls
-  NtTerminateThread on itself (exit code in EBX: a pending syscall overwrites
-  EAX), resumes it fully and waits 100 ms; Wine applies a context set during a
-  syscall only when the syscall returns. Not ended by then (blocked in a wait) ->
-  killed the old way. 32-bit PE only; `[wine] safe_terminate = no` turns it off;
-  `FRAGFIX_LOG=1` (set by `--verbose`) logs calls. `win32_thread_kill`: without
-  the fix the user lock leaks after 3-23 kills; with it 100 kills, plus waiting,
-  suspended and self-killing threads with the right exit codes.
+  version that: (1) waits (up to 3 s, polling without suspending: suspending
+  restarts the thread's Sleep, so per-ms suspends stalled it; handling sent
+  messages) while the thread owns the loader lock (PEB+0xa0; owner == tid, or no
+  owner but LockCount != -1) - games kill threads that are starting or exiting,
+  i.e. running DLL notifications, which takes long in Wine; an exiting one usually
+  just finishes; (2) kills a thread suspended in a wait syscall at once (EIP within
+  32 bytes of NtWaitFor*/NtDelayExecution/NtUserMsgWait.../NtUserGetMessage...
+  stubs), like Windows; moving it would let it die after being granted a critical
+  section; (3) otherwise sets EIP to a stub that sets a flag (EBX) and spins in
+  user mode, resumes it fully, and kills it from outside once there (100 ms max,
+  then where it is). Wine applies a context set during a syscall only when the
+  syscall returns. The stub first ended the thread itself (NtTerminateThread(-2)):
+  after that, Wine 9's alloc_tls_slot looped forever in NtGetNextThread over two
+  such threads when the game loaded a DLL with TLS. 32-bit PE only;
+  `[wine] safe_terminate = no` turns it off; `FRAGFIX_LOG=1` (set by `--verbose`)
+  logs calls. `win32_thread_kill`: without the fix the user lock leaks after 3-23
+  kills; with it 100 kills, waiting, suspended and self-killing threads with the
+  right exit codes, and threads killed while starting/exiting in a DLL whose
+  notifications sleep 300 ms (`thread_kill_dll.c`) leave the loader lock free.
+  NFS III (first version, stub ending the thread itself): log showed the game does
+  call TerminateThread, and the loader lock was then "blocked by" exactly the
+  thread just killed ("ended safely"), i.e. killed during its DLL notifications.
 - Wine version changes: `update_for_wine_version()` stores `wine --version` in
   `<prefix>/.frag-wine-version` and runs `wineboot -u` when it changes (not for a
   new prefix). A Wine 9.0 prefix copied for WineHQ Wine 11 wasn't auto-updated and
@@ -317,8 +331,9 @@ compatibility database later.
     THREAD_DETACH still takes win32u's user lock. New theory: a TerminateThread'd
     thread died holding the user lock (reproduced: leaks after a few kills).
     Relay traces of kernel32/kernelbase thread functions printed nothing
-    (cause unknown), so not yet confirmed that NFS III calls TerminateThread;
-    FRAG's fragfix.dll is the test.
+    (cause unknown). fragfix's log confirmed NFS III calls TerminateThread, and
+    that it kills threads while they hold the loader lock (start/exit); see
+    "TerminateThread" above.
     (Vogons: 3dsetup offers only software rendering; game loads softtria.dll.)
 - **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"
