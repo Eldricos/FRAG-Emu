@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <functional>
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
@@ -40,11 +41,15 @@ bool is_windows_path(const std::string& p) {
            (p[2] == '\\' || p[2] == '/');
 }
 
+volatile std::sig_atomic_t g_interrupts = 0;
+
 // Runs argv with extra environment variables (and in `cwd`, if given), waits, and
 // returns the exit code (128 + signal number if it was killed by a signal).
+// `on_interrupt` is called once if Ctrl+C (see interrupt_handler) arrives while
+// waiting; a second Ctrl+C kills the process outright.
 int run_process(const std::vector<std::string>& argv,
                 const std::vector<std::pair<std::string, std::string>>& env, bool verbose,
-                const fs::path& cwd = {}) {
+                const fs::path& cwd = {}, const std::function<void()>& on_interrupt = {}) {
     if (verbose) {
         std::cerr << "frag:";
         for (const auto& [k, v] : env) std::cerr << ' ' << k << '=' << v;
@@ -64,8 +69,12 @@ int run_process(const std::vector<std::string>& argv,
         _exit(127);
     }
     int status = 0;
+    int handled = on_interrupt ? g_interrupts : 0;
     while (waitpid(pid, &status, 0) < 0) {
         if (errno != EINTR) throw std::runtime_error(std::string("waitpid failed: ") + std::strerror(errno));
+        if (!on_interrupt || g_interrupts == handled) continue;
+        if (handled++ == 0) on_interrupt();
+        else kill(pid, SIGKILL);
     }
     if (WIFEXITED(status)) return WEXITSTATUS(status);
     if (WIFSIGNALED(status)) return 128 + WTERMSIG(status);
@@ -182,6 +191,8 @@ std::string win9x_dyn_data_reg() {
 }
 
 }  // namespace
+
+void interrupt_handler(int) { g_interrupts = g_interrupts + 1; }
 
 fs::path data_dir() {
     // Wine rejects relative WINEPREFIX paths, so always return an absolute path.
@@ -606,12 +617,19 @@ int WinePrefix::run(const RunOptions& opts) {
     argv.insert(argv.end(), autorun_args.begin(), autorun_args.end());
     argv.insert(argv.end(), cfg_.args.begin(), cfg_.args.end());
     argv.insert(argv.end(), opts.extra_args.begin(), opts.extra_args.end());
+    // A frozen game ignores Ctrl+C: Wine handles it on a new thread, which can't
+    // start while the loader lock is stuck (NFS III). So FRAG stops every
+    // process in the prefix itself, then cleans up as usual.
+    const auto stop_game = [this] {
+        std::cerr << "\nfrag: stopping the game (press Ctrl+C again to force)\n";
+        restart_wineserver();
+    };
     const int rc = run_process(argv,
                                {{"WINEPREFIX", path_.string()},
                                 {"WINEDEBUG", opts.wine_debug},
                                 {"WINEDLLOVERRIDES", overrides},
                                 kNoHostDrives},
-                               opts.verbose);
+                               opts.verbose, {}, stop_game);
     if (desktop > 0) {
         kill(desktop, SIGTERM);
         waitpid(desktop, nullptr, 0);

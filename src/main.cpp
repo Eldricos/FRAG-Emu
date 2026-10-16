@@ -75,11 +75,11 @@ int main(int argc, char** argv) {
         prefix.prepare();
         frag::MidiSynth synth(cfg, prefix.path() / "fluidsynth.log", opts.verbose);
         frag::ScreenModeGuard screen(opts.verbose);
-        // Ctrl+C or closing the terminal also reaches the game, which then exits;
-        // FRAG must outlive it to restore the screen mode and stop FluidSynth.
-        // A handler, not SIG_IGN: Wine would inherit an ignored signal.
+        // On Ctrl+C or a closed terminal FRAG stops the game itself and lives on to
+        // restore the screen mode and stop FluidSynth. A handler, not SIG_IGN:
+        // Wine would inherit an ignored signal.
         struct sigaction sa = {};
-        sa.sa_handler = [](int) {};
+        sa.sa_handler = frag::interrupt_handler;
         for (int sig : {SIGINT, SIGTERM, SIGHUP}) sigaction(sig, &sa, nullptr);
         return prefix.run(opts);
     } catch (const std::exception& e) {

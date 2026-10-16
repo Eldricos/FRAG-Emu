@@ -78,6 +78,21 @@ if(MINGW32_CC)
            COMMAND ${RUN_TEST} $<TARGET_FILE:frag> ${CMAKE_CURRENT_BINARY_DIR}/vidmem.conf)
   set_tests_properties(win32_video_memory PROPERTIES TIMEOUT 300)
 
+  # Ctrl+C stops a game frozen on the loader lock (NFS III froze like this).
+  add_custom_command(
+    OUTPUT ${HW_CD}/DEADLOCK.EXE ${HW_CD}/DEADLOCK_DLL.DLL
+    COMMAND ${MINGW32_CC} -O2 -Wall -shared -o ${HW_CD}/DEADLOCK_DLL.DLL
+            ${CMAKE_CURRENT_SOURCE_DIR}/win32/deadlock_dll.c
+    COMMAND ${MINGW32_CC} -O2 -Wall -o ${HW_CD}/DEADLOCK.EXE ${CMAKE_CURRENT_SOURCE_DIR}/win32/deadlock.c
+    DEPENDS win32/deadlock.c win32/deadlock_dll.c
+    COMMENT "Building Win32 test program deadlock.exe")
+  add_custom_target(test_deadlock ALL DEPENDS ${HW_CD}/DEADLOCK.EXE)
+  configure_file(conf/deadlock.conf.in ${CMAKE_CURRENT_BINARY_DIR}/deadlock.conf @ONLY)
+  add_test(NAME interrupt_frozen_game
+           COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/interrupt_test.sh $<TARGET_FILE:frag>
+                   ${CMAKE_CURRENT_BINARY_DIR}/deadlock.conf)
+  set_tests_properties(interrupt_frozen_game PROPERTIES TIMEOUT 300)
+
   # Games find the MS ADPCM codec by its Windows name; FRAG ships a renamed copy.
   set(ACM_CD ${CMAKE_CURRENT_BINARY_DIR}/acm-cd)
   file(MAKE_DIRECTORY ${ACM_CD})
