@@ -20,6 +20,9 @@ per-game compatibility fixes.
 - Wine 9.0 or newer, including 32-bit support (on Debian/Ubuntu: `wine`, `wine32:i386`, `wine64`)
 - To build: CMake 3.16+, a C++17 compiler, and Ninja
   (on Debian/Ubuntu: `sudo apt install build-essential cmake ninja-build`)
+- For games' videos: 32-bit GStreamer decoders (on Debian/Ubuntu:
+  `sudo apt install gstreamer1.0-libav:i386 gstreamer1.0-plugins-good:i386`);
+  FRAG warns when they're missing
 - For MIDI music: FluidSynth and a General MIDI SoundFont
   (on Debian/Ubuntu: `sudo apt install fluidsynth fluid-soundfont-gm`)
 - Recommended: `i686-w64-mingw32-gcc` (`gcc-mingw-w64-i686` on Debian/Ubuntu) to

@@ -152,6 +152,12 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   ddraw's GetAvailableVidMem reports the total minus the screen's framebuffer.
   `win32_video_memory` checks it; with 4 MB it reproduces 0x8876017c exactly.
 
+- Video playback (DirectShow/quartz) decodes through winegstreamer, i.e. the host's
+  GStreamer for the game's bitness. 32-bit games need `gstreamer1.0-libav:i386`
+  (Indeo, Cinepak...), not installed by default on Ubuntu; `run()` prints a note
+  when `/usr/lib/i386-linux-gnu/gstreamer-1.0` (or Arch's `/usr/lib32/...`) lacks
+  `libgstlibav.so`. Checked by hand here: note shown without, gone with the package.
+
 ## Game notes
 
 Real games tested on the owner's machine (Ubuntu, Wine 9.0). Feed these into the
@@ -206,8 +212,15 @@ compatibility database later.
     succeeds, then wined3d logs "Out of adapter memory" twice, then the box. Same
     cause as LEGO Racers: VMware's GL driver reports 1 MB VRAM. FIXED by FRAG's
     VideoMemorySize default; confirmed (game loads, menus work).
-  - Open: freezes while loading a race. (Vogons: 3dsetup offers only software
-    rendering on modern systems; Lutris uses nGlide.)
+  - Open: deadlock on the loader lock. Repeating "err:sync:RtlpWaitForCriticalSection
+    section ... loader_section wait timed out in thread 018c, blocked by 0184".
+    Seen while loading a race, and (another run) when returning to the menu after a
+    race; also with `taskset -c 0`, so not a multi-core race. Likely a DLL unloaded
+    on that transition whose DllMain waits for its worker thread, which needs the
+    loader lock to exit; Windows 9x let that through, NT/Wine deadlock. Attaching
+    winedbg (`bt all`) hangs too (attaching needs the loader lock). Next: +loaddll to
+    see which module is loaded/unloaded just before. (Vogons: 3dsetup offers only
+    software rendering on modern systems; Lutris uses nGlide.)
 - **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"
   (DirectShow `IVideoWindow::put_MessageDrain`, i.e. the intro video's graph
@@ -217,7 +230,11 @@ compatibility database later.
   In a 800x600 FRAG desktop it then said "Unable to create primary drawing surface
   error 8876017c" (DDERR_OUTOFVIDEOMEMORY) with "Out of adapter memory": the 1 MB
   VRAM report. FIXED by FRAG's VideoMemorySize default; confirmed (game loads).
-  - Open: with the intro videos on, still "Unable to set message drain".
+  - Intro videos: Indeo 5 AVIs (`introcmp.avi` etc., 640x480, 15 fps, PCM audio).
+    "Unable to set message drain" was missing 32-bit GStreamer libav; with
+    `gstreamer1.0-libav:i386` (+ plugins-bad/ugly :i386) they play. Remaining
+    console noise: GStreamer-Video-CRITICAL `gst_caps_is_fixed`, quartz
+    DSoundRender/BaseMemAllocator/send_buffer errs (probably on skipping a video).
 - Owner's machine: Ubuntu 24.04 (X11 session) in VMware Workstation 15.5.7 on
   Windows 10, RTX 2080. Guest GL: renderer "SVGA3D; build: RELEASE; LLVM;", OpenGL
   3.3 core, Mesa 25.2.8; vmwgfx reports 3D, dx, SM4_1. That is VMware's host-GPU
