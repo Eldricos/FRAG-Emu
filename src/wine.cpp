@@ -588,6 +588,11 @@ int WinePrefix::run(const RunOptions& opts) {
     std::string overrides = kBaseOverrides;
     for (const auto& [dll, mode] : dlls) overrides += ";" + dll + "=" + mode;
 
+    // Leftovers of an earlier run (a game that froze and was closed, say) keep the
+    // prefix's wineserver and desktop alive; the game would join that desktop, and
+    // [wine] desktop couldn't replace it. Start every run from a clean slate.
+    restart_wineserver();
+
     // The desktop first: any Wine program (regedit included) would otherwise
     // bring up the desktop without the configured size.
     const pid_t desktop = cfg_.desktop.empty() ? -1 : start_desktop();

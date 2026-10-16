@@ -142,6 +142,8 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   and `helpers/fragdesk.c` (OpenDesktop "Default" + SetThreadDesktop + metrics) is
   polled until ready. Explorer is killed after the game. `win32_desktop` test,
   5/5 runs pass (the race failed 2/3 without the start.exe key).
+  `run()` restarts the prefix's wineserver first: a frozen earlier run (NFS III)
+  left its processes and full-size desktop behind, so the desktop never appeared.
 
 - Video memory: wined3d takes VRAM from the GL driver (WGL_WINE_query_renderer).
   VMware's SVGA3D reports 1 MB, so creating any primary surface failed with
@@ -225,9 +227,9 @@ compatibility database later.
     deadlock on unload": imm32's thread cleanup vs krnl386's Win16 lock, taken in
     opposite order to the loader lock. imm32's DllMain THREAD_DETACH is unchanged in
     current master (`IMM_FreeThreadData`), so not fixed upstream.
-    Candidate workaround: `[dlls] imm32 = d` (Western 9x games never use IMEs).
-    hello32 (window + message loop + timer) passes with it; imm32 isn't loaded at
-    all. Awaiting the owner's test; if it works, make it FRAG's default.
+    `[dlls] imm32 = d` does NOT work: comctl32 imports imm32, DINPUT imports
+    comctl32, nfs3.exe imports DINPUT (c0000135). Next: find what pulls in krnl386
+    (16-bit thunks) in nfs3.exe / eacsnd.dll / softtria.dll.
     (Vogons: 3dsetup offers only software rendering; game loads softtria.dll.)
 - **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"
