@@ -239,7 +239,12 @@ compatibility database later.
     function: Wine's kernel32 `process_attach` itself does
     `LoadLibraryA("krnl386.exe16")` for every non-Wine 32-bit exe when the version
     is Win9x (`GetVersion() & 0x80000000`). So the deadlock comes from FRAG's
-    win98 default. Trying `[wine] version = winxp` for the game.
+    win98 default. `[wine] version = winxp` is worse: page fault reading 00000190 at
+    004A3AEC (game code) at startup, Wine's crash dialog flashes, then the loader
+    lock deadlock again (likely winedbg attaching). So NFS III wants 9x mode.
+    Next: win98 + `[dlls] krnl386.exe16 = d`, which stops kernel32 from loading
+    the Win16 subsystem; checked here that hello32 still reports Windows 98 and
+    passes with it. Awaiting the owner's test.
     (Vogons: 3dsetup offers only software rendering; game loads softtria.dll.)
 - **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"
