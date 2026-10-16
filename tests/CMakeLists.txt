@@ -93,6 +93,25 @@ if(MINGW32_CC)
                    ${CMAKE_CURRENT_BINARY_DIR}/deadlock.conf)
   set_tests_properties(interrupt_frozen_game PROPERTIES TIMEOUT 300)
 
+  # TerminateThread doesn't leave Wine's user lock taken (NFS III froze that way).
+  add_custom_command(
+    OUTPUT ${HW_CD}/THREAD_KILL.EXE
+    COMMAND ${MINGW32_CC} -O2 -Wall -o ${HW_CD}/THREAD_KILL.EXE ${CMAKE_CURRENT_SOURCE_DIR}/win32/thread_kill.c
+    DEPENDS win32/thread_kill.c
+    COMMENT "Building Win32 test program thread_kill.exe")
+  add_custom_target(test_thread_kill ALL DEPENDS ${HW_CD}/THREAD_KILL.EXE)
+  configure_file(conf/thread_kill.conf.in ${CMAKE_CURRENT_BINARY_DIR}/thread_kill.conf @ONLY)
+  add_test(NAME win32_thread_kill
+           COMMAND ${RUN_TEST} $<TARGET_FILE:frag> ${CMAKE_CURRENT_BINARY_DIR}/thread_kill.conf)
+  set_tests_properties(win32_thread_kill PROPERTIES TIMEOUT 300)
+
+  # A prefix is updated once when the Wine version changes.
+  configure_file(conf/hello32.conf.in ${CMAKE_CURRENT_BINARY_DIR}/wine-update/hello32.conf @ONLY)
+  add_test(NAME wine_version_update
+           COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/wine_update_test.sh $<TARGET_FILE:frag>
+                   ${CMAKE_CURRENT_BINARY_DIR}/wine-update/hello32.conf)
+  set_tests_properties(wine_version_update PROPERTIES TIMEOUT 600)
+
   # Games find the MS ADPCM codec by its Windows name; FRAG ships a renamed copy.
   set(ACM_CD ${CMAKE_CURRENT_BINARY_DIR}/acm-cd)
   file(MAKE_DIRECTORY ${ACM_CD})

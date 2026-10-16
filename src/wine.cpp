@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <cstdio>
 #include <functional>
 #include <csignal>
 #include <cstdlib>
@@ -128,6 +129,8 @@ fs::path dll_dir() {
 // - msadp32.acm: Wine's MS ADPCM codec under its Windows name, "Microsoft ADPCM".
 //   Classic Board Games looks it up by that name and has no sound without it.
 const char* const kFragDlls[] = {"msadp32.acm"};
+// Not replacements for Wine's: loaded into games by fragstart.exe (see run()).
+const char* const kFragSystemFiles[] = {"fragfix.dll"};
 
 bool is_win9x(const std::string& version) {
     return version == "win31" || version == "win95" || version == "win98" || version == "winme";
@@ -274,9 +277,36 @@ void WinePrefix::prepare() {
         if (int rc = wine_cmd({"wineboot", "--init"}); rc != 0)
             throw std::runtime_error("wineboot failed with exit code " + std::to_string(rc));
     }
+    update_for_wine_version();
     sync_drives();
     install_dlls();
     write_registry();
+}
+
+// A prefix made by one Wine version and run with another needs `wineboot -u` to
+// get the new version's DLLs and registry. Wine usually does this by itself, but
+// a Wine 9.0 prefix copied for Wine 11 wasn't updated, and advapi32 then aborted
+// on a missing cryptbase.dll. So FRAG records the version and updates on change.
+void WinePrefix::update_for_wine_version() {
+    std::string version;
+    if (FILE* p = popen(("'" + wine_ + "' --version 2>/dev/null").c_str(), "r")) {
+        char buf[256];
+        if (fgets(buf, sizeof(buf), p)) version = buf;
+        pclose(p);
+    }
+    while (!version.empty() && std::isspace(static_cast<unsigned char>(version.back()))) version.pop_back();
+    if (version.empty()) return;
+    const fs::path stamp = path_ / ".frag-wine-version";
+    std::string old = read_file(stamp);
+    while (!old.empty() && std::isspace(static_cast<unsigned char>(old.back()))) old.pop_back();
+    if (old == version) return;
+    if (!old.empty()) {
+        std::cerr << "frag: updating the prefix from " << old << " to " << version << '\n';
+        if (int rc = wine_cmd({"wineboot", "-u"}); rc != 0)
+            throw std::runtime_error("wineboot -u failed with exit code " + std::to_string(rc));
+        restart_wineserver();
+    }
+    write_if_changed(stamp, version + "\n");
 }
 
 // Copies FRAG's DLLs into the folder Wine loads 32-bit system DLLs from: syswow64 in
@@ -288,7 +318,9 @@ void WinePrefix::install_dlls() {
     const fs::path system = fs::is_directory(windows / "syswow64") ? windows / "syswow64" : windows / "system32";
     std::vector<std::pair<std::string, fs::path>> files;
     for (const char* name : kFragDlls) files.emplace_back(name, system);
-    files.emplace_back("fragdesk.exe", windows);  // helper, see start_desktop()
+    for (const char* name : kFragSystemFiles) files.emplace_back(name, system);
+    files.emplace_back("fragdesk.exe", windows);   // helper, see start_desktop()
+    files.emplace_back("fragstart.exe", windows);  // starts the game, see run()
     for (const auto& [name, dest] : files) {
         const std::string data = src.empty() ? std::string() : read_file(src / name);
         if (data.empty()) {
@@ -586,7 +618,13 @@ int WinePrefix::run(const RunOptions& opts) {
         try {
             host_exe = to_host_path(exe);
         } catch (const std::runtime_error& e) {
-            throw std::runtime_error(e.what() + exe_not_found_hint());
+            std::string hint = exe_not_found_hint();
+            if (std::toupper(static_cast<unsigned char>(exe[0])) == 'C')
+                hint = "\nC: is this game's own prefix, " + (path_ / "drive_c").string() +
+                       ", and the game isn't installed there. Each [game] name has its own prefix: "
+                       "install the game under this name first, or use the name it was installed "
+                       "under." + hint;
+            throw std::runtime_error(e.what() + hint);
         }
     } else {
         host_exe = fs::weakly_canonical(cfg_.file.parent_path() / exe);
@@ -631,7 +669,23 @@ int WinePrefix::run(const RunOptions& opts) {
     const pid_t desktop = cfg_.desktop.empty() ? -1 : start_desktop();
     if (is_win9x(cfg_.windows_version)) load_win9x_hardware();
 
-    std::vector<std::string> argv{wine_, exe};
+    // Games start through fragstart.exe, which loads fragfix.dll into them: Wine's
+    // TerminateThread can kill a thread holding win32u's user lock, which then
+    // stays taken and freezes the game (NFS III; helpers/fragfix.c). It needs a
+    // Windows path to hand to CreateProcess.
+    std::vector<std::string> argv{wine_};
+    const fs::path windows = path_ / "drive_c" / "windows";
+    const fs::path system = fs::is_directory(windows / "syswow64") ? windows / "syswow64" : windows / "system32";
+    std::vector<std::pair<std::string, std::string>> env = {{"WINEPREFIX", path_.string()},
+                                                            {"WINEDEBUG", opts.wine_debug},
+                                                            {"WINEDLLOVERRIDES", overrides},
+                                                            kNoHostDrives};
+    if (cfg_.safe_terminate && is_windows_path(exe) && fs::is_regular_file(windows / "fragstart.exe") &&
+        fs::is_regular_file(system / "fragfix.dll")) {
+        argv.push_back("C:\\windows\\fragstart.exe");
+        if (opts.verbose) env.emplace_back("FRAGFIX_LOG", "1");
+    }
+    argv.push_back(exe);
     argv.insert(argv.end(), autorun_args.begin(), autorun_args.end());
     argv.insert(argv.end(), cfg_.args.begin(), cfg_.args.end());
     argv.insert(argv.end(), opts.extra_args.begin(), opts.extra_args.end());
@@ -658,12 +712,7 @@ int WinePrefix::run(const RunOptions& opts) {
         std::cerr << "frag: the game didn't stop; killing its processes\n";
         kill_prefix_processes(path_);
     };
-    const int rc = run_process(argv,
-                               {{"WINEPREFIX", path_.string()},
-                                {"WINEDEBUG", opts.wine_debug},
-                                {"WINEDLLOVERRIDES", overrides},
-                                kNoHostDrives},
-                               opts.verbose, {}, stop_game);
+    const int rc = run_process(argv, env, opts.verbose, {}, stop_game);
     if (desktop > 0) {
         kill(desktop, SIGTERM);
         waitpid(desktop, nullptr, 0);

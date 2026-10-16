@@ -21,7 +21,9 @@ per-game packaging and 9x-specific fixes around it. Games only, not general apps
 - `src/disc.*` — CD images: ISO9660/Joliet reader for .iso, .cue/.bin, raw .bin/.img.
 - `src/midi.*` — starts/stops FluidSynth around a game run.
 - `src/display.*` — restores the host screen mode (xrandr) after a game.
-- `helpers/` — FRAG's own Windows helper programs, built into `build/dlls`.
+- `helpers/` — FRAG's own Windows helper programs, built into `build/dlls`:
+  `fragdesk.exe` (virtual desktop probe), `fragstart.exe` + `fragfix.dll` (game
+  launcher with in-process fixes).
 - `src/main.cpp` — CLI: `frag run`, `frag prefix`, `--version`.
 - `third_party/` — Wine-derived Windows DLLs FRAG builds and installs into prefixes.
 - `tests/win32`, `tests/win16` — tiny Windows programs built with MinGW and Open Watcom.
@@ -178,6 +180,30 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   don't load krnl386. Keep win98 for installers/games that check for 9x, but
   consider winxp for games that run on XP.
 
+- TerminateThread (Wine 9.0 and 11.0): Wine kills the thread at once, even inside
+  a syscall (`quit_handler` -> `abort_thread`), so a thread killed inside win32u
+  holding `user_lock` leaves it taken forever. The next exiting thread then hangs
+  in imm32's THREAD_DETACH (`NtUserDestroyInputContext` -> `get_user_handle_ptr`)
+  holding the loader lock, and everything freezes. Windows defers the kill until
+  the thread returns to user mode. Fix: `run()` starts games as
+  `C:\\windows\\fragstart.exe <exe> <args>` (`helpers/fragstart.c`), which creates
+  the game suspended and queues an APC `LoadLibraryA("fragfix.dll")` (Wine's
+  start-up ends in alertable NtContinue, so it runs after DLL init, before the
+  entry point; builtin kernel32 has the same address in every process).
+  `helpers/fragfix.c` patches kernelbase/kernel32 TerminateThread with a jmp to a
+  version that suspends the thread, sets EIP to a stub that calls
+  NtTerminateThread on itself (exit code in EBX: a pending syscall overwrites
+  EAX), resumes it fully and waits 100 ms; Wine applies a context set during a
+  syscall only when the syscall returns. Not ended by then (blocked in a wait) ->
+  killed the old way. 32-bit PE only; `[wine] safe_terminate = no` turns it off;
+  `FRAGFIX_LOG=1` (set by `--verbose`) logs calls. `win32_thread_kill`: without
+  the fix the user lock leaks after 3-23 kills; with it 100 kills, plus waiting,
+  suspended and self-killing threads with the right exit codes.
+- Wine version changes: `update_for_wine_version()` stores `wine --version` in
+  `<prefix>/.frag-wine-version` and runs `wineboot -u` when it changes (not for a
+  new prefix). A Wine 9.0 prefix copied for WineHQ Wine 11 wasn't auto-updated and
+  aborted: "module not found for forward 'cryptbase.SystemFunction036'".
+  `wine_version_update` uses a wrapper reporting another version.
 - Crashes: FRAG sets `HKCU\Software\Wine\WineDbg\ShowCrashDialog=0`, so winedbg
   prints the register dump, backtrace and modules to the terminal instead of a
   dialog (NFS III's vanished before it could be read). Checked by hand with a
@@ -282,8 +308,17 @@ compatibility database later.
     and the DINPUT input thread its WH_MOUSE_LL hook. In Wine 9.0 dinput's
     cbt_hook_proc does SendMessageW(di_em_win, NOTIFY_FOREGROUND_LOST) to the
     input thread; current master handles foreground loss locally instead
-    (`handle_foreground_lost`). Next: try a newer Wine (WineHQ wine-stable in
-    /opt/wine-stable, `[wine] binary`). Quitting from the menu also froze once.
+    (`handle_foreground_lost`). Next: try a newer Wine (WineHQ wine-stable 11.0 in
+    /opt/wine-stable, `[wine] binary = /opt/wine-stable/bin/wine`, on a copy of the
+    prefix). Quitting from the menu also froze once.
+    Wine 11.0: a copied 9.0 prefix failed `wineboot -u` (cryptbase forward), so a
+    fresh prefix with the game reinstalled; still froze before a race, same
+    message. Wine 11's dinput still SendMessages from its CBT hook, and imm32's
+    THREAD_DETACH still takes win32u's user lock. New theory: a TerminateThread'd
+    thread died holding the user lock (reproduced: leaks after a few kills).
+    Relay traces of kernel32/kernelbase thread functions printed nothing
+    (cause unknown), so not yet confirmed that NFS III calls TerminateThread;
+    FRAG's fragfix.dll is the test.
     (Vogons: 3dsetup offers only software rendering; game loads softtria.dll.)
 - **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"
