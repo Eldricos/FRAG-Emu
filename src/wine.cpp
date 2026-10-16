@@ -45,11 +45,11 @@ volatile std::sig_atomic_t g_interrupts = 0;
 
 // Runs argv with extra environment variables (and in `cwd`, if given), waits, and
 // returns the exit code (128 + signal number if it was killed by a signal).
-// `on_interrupt` is called once if Ctrl+C (see interrupt_handler) arrives while
-// waiting; a second Ctrl+C kills the process outright.
+// `on_interrupt(pid, first)` is called for each Ctrl+C (see interrupt_handler)
+// that arrives while waiting.
 int run_process(const std::vector<std::string>& argv,
                 const std::vector<std::pair<std::string, std::string>>& env, bool verbose,
-                const fs::path& cwd = {}, const std::function<void()>& on_interrupt = {}) {
+                const fs::path& cwd = {}, const std::function<void(pid_t, bool)>& on_interrupt = {}) {
     if (verbose) {
         std::cerr << "frag:";
         for (const auto& [k, v] : env) std::cerr << ' ' << k << '=' << v;
@@ -73,8 +73,7 @@ int run_process(const std::vector<std::string>& argv,
     while (waitpid(pid, &status, 0) < 0) {
         if (errno != EINTR) throw std::runtime_error(std::string("waitpid failed: ") + std::strerror(errno));
         if (!on_interrupt || g_interrupts == handled) continue;
-        if (handled++ == 0) on_interrupt();
-        else kill(pid, SIGKILL);
+        on_interrupt(pid, handled++ == 0);
     }
     if (WIFEXITED(status)) return WEXITSTATUS(status);
     if (WIFSIGNALED(status)) return 128 + WTERMSIG(status);
@@ -193,6 +192,25 @@ std::string win9x_dyn_data_reg() {
 }  // namespace
 
 void interrupt_handler(int) { g_interrupts = g_interrupts + 1; }
+
+// SIGKILLs every process started with this WINEPREFIX (found through
+// /proc/<pid>/environ): the game, its helpers and the wineserver.
+static void kill_prefix_processes(const fs::path& prefix) {
+    const std::string want = "WINEPREFIX=" + prefix.string();
+    std::error_code ec;
+    for (const auto& entry : fs::directory_iterator("/proc", ec)) {
+        const std::string name = entry.path().filename().string();
+        if (name.find_first_not_of("0123456789") != std::string::npos) continue;
+        const pid_t pid = std::stoi(name);
+        if (pid == getpid()) continue;
+        std::ifstream in(entry.path() / "environ", std::ios::binary);
+        for (std::string var; std::getline(in, var, '\0');)
+            if (var == want) {
+                kill(pid, SIGKILL);
+                break;
+            }
+    }
+}
 
 fs::path data_dir() {
     // Wine rejects relative WINEPREFIX paths, so always return an absolute path.
@@ -620,9 +638,25 @@ int WinePrefix::run(const RunOptions& opts) {
     // A frozen game ignores Ctrl+C: Wine handles it on a new thread, which can't
     // start while the loader lock is stuck (NFS III). So FRAG stops every
     // process in the prefix itself, then cleans up as usual.
-    const auto stop_game = [this] {
+    // Stopping the wineserver ends its programs, but a thread stuck waiting on a
+    // lock may never notice; then, after 5 s or on a second Ctrl+C, every process
+    // of the prefix is killed outright. (`wineserver -w` would wait forever.)
+    const auto stop_game = [this](pid_t game, bool first) {
+        if (!first) {
+            kill_prefix_processes(path_);
+            return;
+        }
         std::cerr << "\nfrag: stopping the game (press Ctrl+C again to force)\n";
-        restart_wineserver();
+        fs::path server = "wineserver";
+        if (wine_.find('/') != std::string::npos) server = fs::path(wine_).parent_path() / "wineserver";
+        run_process({server.string(), "-k"}, {{"WINEPREFIX", path_.string()}}, verbose_);
+        for (int i = 0; i < 50; ++i) {
+            siginfo_t info{};
+            if (waitid(P_PID, game, &info, WEXITED | WNOHANG | WNOWAIT) == 0 && info.si_pid == game) return;
+            usleep(100 * 1000);
+        }
+        std::cerr << "frag: the game didn't stop; killing its processes\n";
+        kill_prefix_processes(path_);
     };
     const int rc = run_process(argv,
                                {{"WINEPREFIX", path_.string()},

@@ -81,6 +81,12 @@ int main(int argc, char** argv) {
         struct sigaction sa = {};
         sa.sa_handler = frag::interrupt_handler;
         for (int sig : {SIGINT, SIGTERM, SIGHUP}) sigaction(sig, &sa, nullptr);
+        // `frag run ... | tee log`: Ctrl+C ends tee too, and FRAG's next message
+        // would then kill it with SIGPIPE before it stops the game. Writes to the
+        // dead pipe just fail instead (a no-op handler, again not SIG_IGN).
+        struct sigaction pipe_sa = {};
+        pipe_sa.sa_handler = [](int) {};
+        sigaction(SIGPIPE, &pipe_sa, nullptr);
         return prefix.run(opts);
     } catch (const std::exception& e) {
         std::cerr << "frag: " << e.what() << '\n';
