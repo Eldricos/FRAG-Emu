@@ -160,6 +160,13 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   when `/usr/lib/i386-linux-gnu/gstreamer-1.0` (or Arch's `/usr/lib32/...`) lacks
   `libgstlibav.so`. Checked by hand here: note shown without, gone with the package.
 
+- Windows 9x mode costs something: Wine's kernel32 loads krnl386.exe16 (the Win16
+  subsystem and its Win16 lock) into every 32-bit program when the version is
+  win95/98/me. That enables Wine bug 52511 (imm32 thread cleanup vs Win16 lock vs
+  loader lock), a permanent freeze when a thread exits; NFS III hit it. NT versions
+  don't load krnl386. Keep win98 for installers/games that check for 9x, but
+  consider winxp for games that run on XP.
+
 ## Game notes
 
 Real games tested on the owner's machine (Ubuntu, Wine 9.0). Feed these into the
@@ -228,8 +235,11 @@ compatibility database later.
     opposite order to the loader lock. imm32's DllMain THREAD_DETACH is unchanged in
     current master (`IMM_FreeThreadData`), so not fixed upstream.
     `[dlls] imm32 = d` does NOT work: comctl32 imports imm32, DINPUT imports
-    comctl32, nfs3.exe imports DINPUT (c0000135). Next: find what pulls in krnl386
-    (16-bit thunks) in nfs3.exe / eacsnd.dll / softtria.dll.
+    comctl32, nfs3.exe imports DINPUT (c0000135). No game file imports any 16-bit
+    function: Wine's kernel32 `process_attach` itself does
+    `LoadLibraryA("krnl386.exe16")` for every non-Wine 32-bit exe when the version
+    is Win9x (`GetVersion() & 0x80000000`). So the deadlock comes from FRAG's
+    win98 default. Trying `[wine] version = winxp` for the game.
     (Vogons: 3dsetup offers only software rendering; game loads softtria.dll.)
 - **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"
