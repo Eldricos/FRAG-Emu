@@ -45,7 +45,19 @@ if(MINGW32_CC)
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/helpers/fragdesk.c
     COMMENT "Building fragdesk.exe")
   add_custom_target(fragdesk ALL DEPENDS ${CMAKE_BINARY_DIR}/dlls/fragdesk.exe)
+  # fragstart.exe starts games with fragfix.dll (in-process fixes) loaded.
+  add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/dlls/fragstart.exe ${CMAKE_BINARY_DIR}/dlls/fragfix.dll
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/dlls
+    COMMAND ${MINGW32_CC} -O2 -Wall -o ${CMAKE_BINARY_DIR}/dlls/fragstart.exe
+            ${CMAKE_CURRENT_SOURCE_DIR}/helpers/fragstart.c
+    COMMAND ${MINGW32_CC} -O2 -Wall -shared -o ${CMAKE_BINARY_DIR}/dlls/fragfix.dll
+            ${CMAKE_CURRENT_SOURCE_DIR}/helpers/fragfix.c -lntdll
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/helpers/fragstart.c ${CMAKE_CURRENT_SOURCE_DIR}/helpers/fragfix.c
+    COMMENT "Building fragstart.exe and fragfix.dll")
+  add_custom_target(fragstart ALL DEPENDS ${CMAKE_BINARY_DIR}/dlls/fragstart.exe)
   install(FILES ${CMAKE_BINARY_DIR}/dlls/msadp32.acm ${CMAKE_BINARY_DIR}/dlls/fragdesk.exe
+                ${CMAKE_BINARY_DIR}/dlls/fragstart.exe ${CMAKE_BINARY_DIR}/dlls/fragfix.dll
           DESTINATION share/frag/dlls)
 else()
   message(WARNING "i686-w64-mingw32-gcc not found: building without msadp32.acm "

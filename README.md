@@ -101,6 +101,8 @@ them only when you need them:
                                # Wine would ask the graphics driver, and some VMs say 1)
 # desktop = 800x600            # run the game in a window of this size instead of
                                # full screen; it can't change your screen's mode
+# safe_terminate = no          # turn off FRAG's TerminateThread fix (default: on;
+                               # see "Frozen games" below)
 
 [drive D]
 # type  = cdrom                # hd (default) or cdrom; use cdrom for CD contents
@@ -146,6 +148,19 @@ stops it (all of its Wine processes) and restores the screen. Press Ctrl+C a
 second time to force it. To keep a game from
 touching your screen at all, set `desktop = 800x600` (or another size) under
 `[wine]`: the game then runs inside a window of that size, like in DOSBox.
+
+## Frozen games
+
+Games of the Windows 9x era often end their own threads with `TerminateThread`.
+Windows lets such a thread finish what it is doing in the kernel first; Wine
+kills it on the spot, and if it was inside Wine's window code at that moment, a
+lock stays taken forever. The game then freezes, typically while loading or
+leaving a level, and `frag` prints
+`RtlpWaitForCriticalSection ... "loader_section" wait timed out`.
+FRAG starts games through its own `fragstart.exe`, which loads `fragfix.dll`
+into them: their `TerminateThread` waits until the thread is back in the game's
+own code before ending it. `frag run --verbose` shows each call. Set
+`[wine] safe_terminate = no` to start the game directly instead.
 
 ## CD images
 

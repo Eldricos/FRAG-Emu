@@ -99,6 +99,12 @@ GameConfig load_config(const fs::path& path) {
                 else if (v == "no" || v == "false" || v == "0") cfg.host_drive = false;
                 else fail(file, lineno, "host_drive must be yes or no");
             }
+            else if (key == "safe_terminate") {
+                std::string v = lower(value);
+                if (v == "yes" || v == "true" || v == "1") cfg.safe_terminate = true;
+                else if (v == "no" || v == "false" || v == "0") cfg.safe_terminate = false;
+                else fail(file, lineno, "safe_terminate must be yes or no");
+            }
             else if (key == "video_memory") {
                 char* end = nullptr;
                 unsigned long mb = std::strtoul(value.c_str(), &end, 10);

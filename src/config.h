@@ -31,6 +31,9 @@ struct GameConfig {
     std::string windows_version = "win98";  // [wine] version: win31, win95, win98, winme, ...
     std::string wine_binary;           // [wine] binary, empty = "wine" from PATH or $FRAG_WINE
     bool host_drive = false;           // [wine] host_drive: show the host filesystem as Z:
+    bool safe_terminate = true;        // [wine] safe_terminate: start the game through fragstart.exe,
+                                       // whose fragfix.dll makes TerminateThread wait for the thread
+                                       // to leave Wine (see helpers/fragfix.c)
     unsigned video_memory = 128;       // [wine] video_memory: MB of video memory games are told about
     std::string desktop;               // [wine] desktop: "WxH" runs the game in a window of that
                                        // size (Wine's virtual desktop); empty = full screen

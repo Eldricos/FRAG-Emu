@@ -1,0 +1,13 @@
+# TerminateThread through fragstart.exe/fragfix.dll leaves Wine's locks free.
+[game]
+name = thread_kill
+exe = D:\THREAD_KILL.EXE
+
+[wine]
+version = win98
+
+[drive D]
+path = @HW_CD@
+
+[sound]
+midi_synth = off
