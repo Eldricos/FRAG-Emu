@@ -132,11 +132,16 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
 - Ctrl+C / SIGTERM / SIGHUP during a game: `interrupt_handler` counts them (a
   handler, not SIG_IGN, which Wine would inherit). A game frozen on the loader
   lock ignores Ctrl+C (Wine needs a new thread for it), so the first one makes
-  `run()` stop the whole prefix (`restart_wineserver`), the second SIGKILLs the
-  game; then the usual cleanup (screen mode, FluidSynth) runs. Before this, NFS
-  III froze, xkill was needed and the host stayed at 640x480.
+  `run()` run `wineserver -k` (not `-w`, which can wait forever) and wait up to
+  5 s for the game; threads stuck on a lock may never notice the server is gone,
+  so then (or on a second Ctrl+C) `kill_prefix_processes` SIGKILLs every process
+  whose environ has this WINEPREFIX. Then the usual cleanup (screen mode,
+  FluidSynth) runs. SIGPIPE gets a no-op handler so `frag ... | tee` survives tee
+  dying first (couldn't reproduce the owner's failure that way, kept as guard).
+  Before this, NFS III froze, xkill was needed and the host stayed at 640x480.
   `interrupt_frozen_game` freezes deadlock.exe on the loader lock (DllMain waits
-  for a new thread) and checks frag stops it.
+  for a new thread) and checks frag stops it: plain, through tee, and with a
+  wineserver wrapper that ignores -k (fails without the 5 s fallback).
 - `[wine] desktop = WxH` (Wine virtual desktop). Registry alone (Explorer\Desktop +
   Desktops\Default) did NOT work in FRAG prefixes: every Wine process creates the
   "Default" desktop at startup if missing (win32u `winstation_init`, flags 0 =
