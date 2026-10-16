@@ -157,9 +157,11 @@ kills it on the spot, and if it was inside Wine's window code at that moment, a
 lock stays taken forever. The game then freezes, typically while loading or
 leaving a level, and `frag` prints
 `RtlpWaitForCriticalSection ... "loader_section" wait timed out`.
-FRAG starts games through its own `fragstart.exe`, which loads `fragfix.dll`
-into them: their `TerminateThread` waits until the thread is back in the game's
-own code before ending it. `frag run --verbose` shows each call. Set
+Games also end threads that are just starting or finishing, while Wine runs
+every DLL's start-up or clean-up code for them under a lock; killed there, the
+thread leaves that lock taken. FRAG starts games through its own
+`fragstart.exe`, which loads `fragfix.dll` into them: their `TerminateThread`
+waits until the thread is out of Wine's code and locks before ending it. `frag run --verbose` shows each call. Set
 `[wine] safe_terminate = no` to start the game directly instead.
 
 ## CD images

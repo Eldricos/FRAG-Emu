@@ -95,9 +95,11 @@ if(MINGW32_CC)
 
   # TerminateThread doesn't leave Wine's user lock taken (NFS III froze that way).
   add_custom_command(
-    OUTPUT ${HW_CD}/THREAD_KILL.EXE
+    OUTPUT ${HW_CD}/THREAD_KILL.EXE ${HW_CD}/THREAD_KILL_DLL.DLL
+    COMMAND ${MINGW32_CC} -O2 -Wall -shared -o ${HW_CD}/THREAD_KILL_DLL.DLL
+            ${CMAKE_CURRENT_SOURCE_DIR}/win32/thread_kill_dll.c
     COMMAND ${MINGW32_CC} -O2 -Wall -o ${HW_CD}/THREAD_KILL.EXE ${CMAKE_CURRENT_SOURCE_DIR}/win32/thread_kill.c
-    DEPENDS win32/thread_kill.c
+    DEPENDS win32/thread_kill.c win32/thread_kill_dll.c
     COMMENT "Building Win32 test program thread_kill.exe")
   add_custom_target(test_thread_kill ALL DEPENDS ${HW_CD}/THREAD_KILL.EXE)
   configure_file(conf/thread_kill.conf.in ${CMAKE_CURRENT_BINARY_DIR}/thread_kill.conf @ONLY)

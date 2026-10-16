@@ -6,7 +6,9 @@
  * Wine. Checks:
  *  - 100 kills of a thread busy in user32 leave the user lock free;
  *  - a thread blocked in an endless wait, a suspended one, and one ending itself
- *    all end, with the exit code given.
+ *    all end, with the exit code given;
+ *  - killing a thread while it starts or exits (running DLL notifications, with
+ *    the loader lock held; NFS III does this) leaves the loader lock free.
  * Exit code 0 means pass.
  */
 #include <windows.h>
@@ -32,6 +34,22 @@ static DWORD WINAPI ends_itself(void *arg)
 {
     TerminateThread(GetCurrentThread(), 5);
     return 1;
+}
+
+static DWORD WINAPI returns_at_once(void *arg) { return 0; }
+
+/* A new thread can start and finish, i.e. the loader lock is free. */
+static int check_loader_free(const char *what)
+{
+    HANDLE t = CreateThread(NULL, 0, returns_at_once, NULL, 0, NULL);
+    DWORD r = WaitForSingleObject(t, 5000);
+    CloseHandle(t);
+    if (r != WAIT_OBJECT_0) {
+        printf("FAIL %s: loader lock left taken\n", what);
+        return 1;
+    }
+    printf("PASS %s\n", what);
+    return 0;
 }
 
 static int check_ended(const char *what, HANDLE thread, DWORD want)
@@ -93,6 +111,25 @@ int main(void)
 
     t = CreateThread(NULL, 0, ends_itself, NULL, 0, NULL);
     failed += check_ended("thread kills itself", t, 5);
+
+    /* Slow thread notifications from here on. */
+    if (!LoadLibraryA("THREAD_KILL_DLL.DLL")) {
+        printf("FAIL cannot load THREAD_KILL_DLL.DLL\n");
+        return 1;
+    }
+    t = CreateThread(NULL, 0, busy_in_user32, NULL, 0, NULL);
+    Sleep(100);
+    TerminateThread(t, 9);
+    WaitForSingleObject(t, 5000);
+    CloseHandle(t);
+    failed += check_loader_free("kill a starting thread");
+
+    t = CreateThread(NULL, 0, returns_at_once, NULL, 0, NULL);
+    Sleep(400); /* past the start, into the exit */
+    TerminateThread(t, 9);
+    WaitForSingleObject(t, 5000);
+    CloseHandle(t);
+    failed += check_loader_free("kill an exiting thread");
 
     return failed ? 1 : 0;
 }
