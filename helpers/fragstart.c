@@ -8,6 +8,10 @@
  * runs once the game's DLLs are initialised and before its entry point. The APC
  * function is LoadLibraryA at this process's address: Wine maps its builtin DLLs
  * at the same address in every process. 16-bit programs are started as they are.
+ * The game must see the memory it would without FRAG: Oregon Trail II crashed
+ * when the DLL name sat in a page just below its exe. So the name goes at the top
+ * of the address space and is freed once fragfix.dll reports it is loaded, and
+ * fragfix.dll is built without a C runtime (nothing allocated at load time).
  * Usage: fragstart.exe <program> [arguments...]
  */
 #include <windows.h>
@@ -61,12 +65,20 @@ int main(int argc, char **argv)
         return 1;
     }
     if (inject) {
-        remote = VirtualAllocEx(pi.hProcess, NULL, sizeof(dll), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        char event_name[64];
+        HANDLE loaded;
+        wsprintfA(event_name, "fragfix-loaded-%lu", pi.dwProcessId);
+        loaded = CreateEventA(NULL, TRUE, FALSE, event_name);
+        remote = VirtualAllocEx(pi.hProcess, NULL, sizeof(dll), MEM_COMMIT | MEM_RESERVE | MEM_TOP_DOWN,
+                                PAGE_READWRITE);
         if (!remote || !WriteProcessMemory(pi.hProcess, remote, dll, sizeof(dll), NULL) ||
             !QueueUserAPC((PAPCFUNC)GetProcAddress(GetModuleHandleA("kernel32.dll"), "LoadLibraryA"),
                           pi.hThread, (ULONG_PTR)remote))
             fprintf(stderr, "fragstart: could not load %s into the game (error %lu)\n", dll, GetLastError());
         ResumeThread(pi.hThread);
+        if (remote && loaded && WaitForSingleObject(loaded, 10000) == WAIT_OBJECT_0)
+            VirtualFreeEx(pi.hProcess, remote, 0, MEM_RELEASE);
+        if (loaded) CloseHandle(loaded);
     }
     CloseHandle(pi.hThread);
     WaitForSingleObject(pi.hProcess, INFINITE);
