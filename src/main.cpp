@@ -9,6 +9,7 @@
 #include <csignal>
 #include <cstring>
 #include <exception>
+#include <cstdlib>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -26,7 +27,8 @@ void usage(std::ostream& out) {
            "\n"
            "options for run:\n"
            "  -v, --verbose            print the commands FRAG runs\n"
-           "  --wine-debug CHANNELS    set WINEDEBUG (default: fixme-all), e.g. +loaddll,+relay\n";
+           "  --wine-debug CHANNELS    set WINEDEBUG (default: $WINEDEBUG, else fixme-all),\n"
+           "                           e.g. +loaddll,+relay\n";
 }
 
 }  // namespace
@@ -49,6 +51,8 @@ int main(int argc, char** argv) {
     }
 
     frag::RunOptions opts;
+    // WINEDEBUG=... frag run ... works as with plain wine; --wine-debug wins.
+    if (const char* d = std::getenv("WINEDEBUG"); d && *d) opts.wine_debug = d;
     for (size_t i = 2; i < args.size(); ++i) {
         if (args[i] == "--") {
             opts.extra_args.assign(args.begin() + static_cast<long>(i) + 1, args.end());

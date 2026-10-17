@@ -50,7 +50,9 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   letter and a matching working directory; verified by `win32_hello`.
 - Win16 programs run under Ubuntu's Wine 9.0 in this environment (`win16_hello`).
 - `WINEPREFIX` must be absolute; `data_dir()` makes `FRAG_HOME` absolute.
-- Default `WINEDEBUG` for games is `fixme-all`, so `err:` lines (e.g. which DLL is
+- `WINEDEBUG` for games: `--wine-debug`, else `$WINEDEBUG` (honoured only since
+  Oct 2026: earlier `WINEDEBUG=... frag run` traces were silently ignored, e.g. the
+  empty NFS III relay traces), else `fixme-all`, so `err:` lines (e.g. which DLL is
   missing for c0000135) are shown.
 - Video codecs (Indeo 3/4/5, Cinepak, MS Video 1) default to `native,builtin`.
   With Wine's builtin first, InstallShield fails with -119 registering a game's
@@ -221,6 +223,9 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   `frag run ... | grep` kept the terminal (owner had to press Ctrl+C after NFS III).
   `game_leaves_program`: spawn.exe exits leaving a child for 3 s; frag must wait
   for it and return through a pipe within 20 s (37 s before, 5 s now).
+  winedbg.exe (crash reports) gets at most 15 s: on the owner's machine it printed
+  nothing and frag waited forever after Oregon Trail II crashed (here it prints the
+  report and exits at once).
 - Wine version changes: `update_for_wine_version()` stores `wine --version` in
   `<prefix>/.frag-wine-version` and runs `wineboot -u` when it changes (not for a
   new prefix). A Wine 9.0 prefix copied for WineHQ Wine 11 wasn't auto-updated and
@@ -276,7 +281,10 @@ compatibility database later.
   - Runs from an .iso of its disc (`[drive D] image = ...`, label/serial automatic).
   - Open: intro video glitches for a few seconds.
 
-- **Need for Speed III: Hot Pursuit (1998)** — in progress.
+- **Need for Speed III: Hot Pursuit (1998)** — WORKS (WineHQ Wine 11.0, fresh
+  prefix, win98, from an .iso; installer `D:\setup\english\setup.exe`). Played for
+  a while with no noticeable issues; terminal returns by itself after quitting.
+  Also confirmed on Ubuntu's Wine 9.0 with fragfix (no freeze). History below.
   - Installer (`setup.exe` in a subfolder, lower case) showed "Could not get
     'HardWareKey' value" from `3dsetup` (Wine bug 7115: Win9x mode, empty
     HKEY_DYN_DATA). FIXED by FRAG's Win9x hardware entries; confirmed (installs).
@@ -345,7 +353,23 @@ compatibility database later.
     freezes (starts, races, menu, quit); log shows "ended in a wait", "ended by
     itself while waiting for the loader lock", "thread busy in Wine".
     (Vogons: 3dsetup offers only software rendering; game loads softtria.dll.)
-- **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
+- **LEGO Racers (1999)** — WORKS windowed (`[wine] desktop = WxH`); full screen
+  BROKEN on both Ubuntu's Wine 9.0 and WineHQ Wine 11.0 (fresh prefix,
+  reinstalled; FRAG waited for InstallShield's `_ins5576._mp`/`_isdel.exe`). Full
+  screen, the game switches DirectDraw between exclusive 640x480 and normal around
+  each intro video (quartz video windows are unowned top-level popups and are
+  released properly). Afterwards the "LEGO Racers" X window stayed 1920x1080 and an
+  unnamed classless 640x480 X window (likely winex11's GL client window, detached)
+  sat at top level, so frames never reached the screen (stale video frame or the
+  desktop showed). `-novideo` full screen WORKS (menus fine), so only the
+  switches around the videos break it. `desktop = 1920x1080` (screen-sized, so
+  Wine shows it full screen) shrinks to a 640x480 window when the game sets its
+  mode; host switched to 640x480 by hand + `desktop = 640x480` works but is
+  still a window; host at 640x480 + no desktop still fails. Full screen with
+  intros PARKED (owner's choice): needs work in Wine's winex11/wined3d; revisit if
+  another game shows the same detached-GL-window symptom. (A commit
+  on Oct 17 wrongly recorded full screen as working on Wine 11 before it was tested.)
+  Earlier history: Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"
   (DirectShow `IVideoWindow::put_MessageDrain`, i.e. the intro video's graph
   failed; Indeo video). Known workaround on Windows too: `args = -novideo`.
@@ -365,6 +389,10 @@ compatibility database later.
   path (software would be "llvmpipe" with GL 4.5); glxinfo's "Accelerated: no" and
   "Video memory: 1MB" are how Mesa's svga driver reports itself, not a fault. GL 3.3
   is enough for wined3d's Direct3D 1-9. (Workstation 17 would give GL 4.3.)
+
+- **Oregon Trail II (MECC, 1995)** — in progress. Installer ran (16-bit parts:
+  Win16Mutex timeouts, ignored exceptions in callbacks). Game crashes at start:
+  page fault writing 00000000 at 004818E9 (game code); winedbg printed nothing.
 
 ## Roadmap
 
