@@ -745,9 +745,18 @@ int WinePrefix::run(const RunOptions& opts) {
     // small first program has exited): wait for them. Then end Wine's services,
     // which would otherwise linger for half a minute holding the game's output,
     // so `frag run ... | grep` kept the terminal until then.
+    // Wine's debugger, started for a crash, gets 15 s to print its report: it can
+    // hang once the crashed game is gone (Oregon Trail II).
+    int debugger_wait = 0;
     for (std::string shown; g_interrupts == 0;) {
         const auto programs = prefix_programs(path_);
         if (programs.empty()) break;
+        const bool only_debugger =
+            std::all_of(programs.begin(), programs.end(), [](const std::string& p) { return p == "winedbg.exe"; });
+        if (only_debugger && ++debugger_wait > 30) {
+            std::cerr << "frag: winedbg didn't finish; stopping it\n";
+            break;
+        }
         std::string names;
         for (const auto& p : programs) names += (names.empty() ? "" : ", ") + p;
         if (names != shown) std::cerr << "frag: waiting for " << names << " to finish\n";

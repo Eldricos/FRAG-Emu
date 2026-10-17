@@ -223,6 +223,9 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   `frag run ... | grep` kept the terminal (owner had to press Ctrl+C after NFS III).
   `game_leaves_program`: spawn.exe exits leaving a child for 3 s; frag must wait
   for it and return through a pipe within 20 s (37 s before, 5 s now).
+  winedbg.exe (crash reports) gets at most 15 s: on the owner's machine it printed
+  nothing and frag waited forever after Oregon Trail II crashed (here it prints the
+  report and exits at once).
 - Wine version changes: `update_for_wine_version()` stores `wine --version` in
   `<prefix>/.frag-wine-version` and runs `wineboot -u` when it changes (not for a
   new prefix). A Wine 9.0 prefix copied for WineHQ Wine 11 wasn't auto-updated and
@@ -386,6 +389,10 @@ compatibility database later.
   path (software would be "llvmpipe" with GL 4.5); glxinfo's "Accelerated: no" and
   "Video memory: 1MB" are how Mesa's svga driver reports itself, not a fault. GL 3.3
   is enough for wined3d's Direct3D 1-9. (Workstation 17 would give GL 4.3.)
+
+- **Oregon Trail II (MECC, 1995)** — in progress. Installer ran (16-bit parts:
+  Win16Mutex timeouts, ignored exceptions in callbacks). Game crashes at start:
+  page fault writing 00000000 at 004818E9 (game code); winedbg printed nothing.
 
 ## Roadmap
 
