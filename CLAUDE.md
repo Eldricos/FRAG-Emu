@@ -362,7 +362,9 @@ compatibility database later.
   switches around the videos break it. `desktop = 1920x1080` (screen-sized, so
   Wine shows it full screen) shrinks to a 640x480 window when the game sets its
   mode; host switched to 640x480 by hand + `desktop = 640x480` works but is
-  still a window; host at 640x480 + no desktop still fails. (A commit
+  still a window; host at 640x480 + no desktop still fails. Full screen with
+  intros PARKED (owner's choice): needs work in Wine's winex11/wined3d; revisit if
+  another game shows the same detached-GL-window symptom. (A commit
   on Oct 17 wrongly recorded full screen as working on Wine 11 before it was tested.)
   Earlier history: Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"
