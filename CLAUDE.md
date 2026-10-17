@@ -206,7 +206,13 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   then where it is). Wine applies a context set during a syscall only when the
   syscall returns. The stub first ended the thread itself (NtTerminateThread(-2)):
   after that, Wine 9's alloc_tls_slot looped forever in NtGetNextThread over two
-  such threads when the game loaded a DLL with TLS. 32-bit PE only;
+  such threads when the game loaded a DLL with TLS.
+  Footprint: Oregon Trail II crashed at start (write to 0 in game code) only
+  with fragfix; fragstart's VirtualAllocEx page for the DLL name had landed at
+  0x350000 and shifted the allocations below the exe. Now the page is MEM_TOP_DOWN
+  and freed once fragfix sets event `fragfix-loaded-<pid>`, and fragfix is built
+  -nostdlib (kernel32/user32/ntdll only). Checked by diffing a GUI program's
+  VirtualQuery map below 32 MB with and without fragfix: identical. 32-bit PE only;
   `[wine] safe_terminate = no` turns it off; `FRAGFIX_LOG=1` (set by `--verbose`)
   logs calls. `win32_thread_kill`: without the fix the user lock leaks after 3-23
   kills; with it 100 kills, waiting, suspended and self-killing threads with the
@@ -393,6 +399,10 @@ compatibility database later.
 - **Oregon Trail II (MECC, 1995)** — in progress. Installer ran (16-bit parts:
   Win16Mutex timeouts, ignored exceptions in callbacks). Game crashes at start:
   page fault writing 00000000 at 004818E9 (game code); winedbg printed nothing.
+  Runs with `safe_terminate = no`, so fragfix caused it (see TerminateThread
+  footprint). Then it got stuck until alt-tab (not yet looked at). otii32.exe
+  needs QTIM32.DLL (QuickTime for Windows 2.x, "MECCQTWClass" window); no QuickTime
+  installer on the disc (Setup32.exe probably copies it).
 
 ## Roadmap
 
