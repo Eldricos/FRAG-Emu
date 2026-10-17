@@ -213,6 +213,14 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   NFS III (first version, stub ending the thread itself): log showed the game does
   call TerminateThread, and the loader lock was then "blocked by" exactly the
   thread just killed ("ended safely"), i.e. killed during its DLL notifications.
+- After the game: `run()` waits while `prefix_programs()` finds Windows programs
+  in the prefix (environ WINEPREFIX, argv[0] base name) other than Wine's services
+  (services, winedevice, plugplay, explorer, rpcss, svchost, conhost, start, ...),
+  e.g. an installer engine whose bootstrap exited; then `wineserver -k`. Without
+  that, the services (and `wineserver -p30`) held the game's stdout for ~30 s, so
+  `frag run ... | grep` kept the terminal (owner had to press Ctrl+C after NFS III).
+  `game_leaves_program`: spawn.exe exits leaving a child for 3 s; frag must wait
+  for it and return through a pipe within 20 s (37 s before, 5 s now).
 - Wine version changes: `update_for_wine_version()` stores `wine --version` in
   `<prefix>/.frag-wine-version` and runs `wineboot -u` when it changes (not for a
   new prefix). A Wine 9.0 prefix copied for WineHQ Wine 11 wasn't auto-updated and
@@ -333,7 +341,9 @@ compatibility database later.
     Relay traces of kernel32/kernelbase thread functions printed nothing
     (cause unknown). fragfix's log confirmed NFS III calls TerminateThread, and
     that it kills threads while they hold the loader lock (start/exit); see
-    "TerminateThread" above.
+    "TerminateThread" above. With the loader-lock-aware version: no more
+    freezes (starts, races, menu, quit); log shows "ended in a wait", "ended by
+    itself while waiting for the loader lock", "thread busy in Wine".
     (Vogons: 3dsetup offers only software rendering; game loads softtria.dll.)
 - **LEGO Racers (1999)** — in progress. Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"

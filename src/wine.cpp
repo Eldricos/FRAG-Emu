@@ -215,6 +215,34 @@ static void kill_prefix_processes(const fs::path& prefix) {
     }
 }
 
+// Windows programs still running in the prefix, by file name, except Wine's own
+// services and FRAG's helpers. Wine shows a program's Windows path as argv[0].
+static std::vector<std::string> prefix_programs(const fs::path& prefix) {
+    static const std::set<std::string> services = {
+        "services.exe", "winedevice.exe", "plugplay.exe", "explorer.exe", "rpcss.exe", "svchost.exe",
+        "conhost.exe",  "start.exe",      "wineboot.exe", "tabtip.exe",   "rundll32.exe", "fragdesk.exe"};
+    const std::string want = "WINEPREFIX=" + prefix.string();
+    std::vector<std::string> found;
+    std::error_code ec;
+    for (const auto& entry : fs::directory_iterator("/proc", ec)) {
+        const std::string name = entry.path().filename().string();
+        if (name.find_first_not_of("0123456789") != std::string::npos || std::stoi(name) == getpid()) continue;
+        bool in_prefix = false;
+        std::ifstream env(entry.path() / "environ", std::ios::binary);
+        for (std::string var; !in_prefix && std::getline(env, var, '\0');) in_prefix = var == want;
+        if (!in_prefix) continue;
+        std::string argv0;
+        std::ifstream cmd(entry.path() / "cmdline", std::ios::binary);
+        std::getline(cmd, argv0, '\0');
+        const std::string base = lower(argv0.substr(argv0.find_last_of("\\/") + 1));
+        if (base.empty() || base.find("wineserver") != std::string::npos || base.find("wine-preloader") != std::string::npos ||
+            base == "wine" || base == "wine64" || services.count(base))
+            continue;
+        found.push_back(base);
+    }
+    return found;
+}
+
 fs::path data_dir() {
     // Wine rejects relative WINEPREFIX paths, so always return an absolute path.
     if (const char* h = std::getenv("FRAG_HOME"); h && *h) return fs::absolute(h);
@@ -713,6 +741,24 @@ int WinePrefix::run(const RunOptions& opts) {
         kill_prefix_processes(path_);
     };
     const int rc = run_process(argv, env, opts.verbose, {}, stop_game);
+    // Programs the game started may still run (an installer's engine after its
+    // small first program has exited): wait for them. Then end Wine's services,
+    // which would otherwise linger for half a minute holding the game's output,
+    // so `frag run ... | grep` kept the terminal until then.
+    for (std::string shown; g_interrupts == 0;) {
+        const auto programs = prefix_programs(path_);
+        if (programs.empty()) break;
+        std::string names;
+        for (const auto& p : programs) names += (names.empty() ? "" : ", ") + p;
+        if (names != shown) std::cerr << "frag: waiting for " << names << " to finish\n";
+        shown = names;
+        usleep(500 * 1000);
+    }
+    {
+        fs::path server = "wineserver";
+        if (wine_.find('/') != std::string::npos) server = fs::path(wine_).parent_path() / "wineserver";
+        run_process({server.string(), "-k"}, {{"WINEPREFIX", path_.string()}}, verbose_);
+    }
     if (desktop > 0) {
         kill(desktop, SIGTERM);
         waitpid(desktop, nullptr, 0);
