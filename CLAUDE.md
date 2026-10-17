@@ -50,7 +50,9 @@ extracted to `/opt/watcom`. First prefix creation takes ~20 s.
   letter and a matching working directory; verified by `win32_hello`.
 - Win16 programs run under Ubuntu's Wine 9.0 in this environment (`win16_hello`).
 - `WINEPREFIX` must be absolute; `data_dir()` makes `FRAG_HOME` absolute.
-- Default `WINEDEBUG` for games is `fixme-all`, so `err:` lines (e.g. which DLL is
+- `WINEDEBUG` for games: `--wine-debug`, else `$WINEDEBUG` (honoured only since
+  Oct 2026: earlier `WINEDEBUG=... frag run` traces were silently ignored, e.g. the
+  empty NFS III relay traces), else `fixme-all`, so `err:` lines (e.g. which DLL is
   missing for c0000135) are shown.
 - Video codecs (Indeo 3/4/5, Cinepak, MS Video 1) default to `native,builtin`.
   With Wine's builtin first, InstallShield fails with -119 registering a game's
@@ -279,7 +281,7 @@ compatibility database later.
 - **Need for Speed III: Hot Pursuit (1998)** — WORKS (WineHQ Wine 11.0, fresh
   prefix, win98, from an .iso; installer `D:\setup\english\setup.exe`). Played for
   a while with no noticeable issues; terminal returns by itself after quitting.
-  Not yet re-checked on Ubuntu's Wine 9.0 with fragfix. History below.
+  Also confirmed on Ubuntu's Wine 9.0 with fragfix (no freeze). History below.
   - Installer (`setup.exe` in a subfolder, lower case) showed "Could not get
     'HardWareKey' value" from `3dsetup` (Wine bug 7115: Win9x mode, empty
     HKEY_DYN_DATA). FIXED by FRAG's Win9x hardware entries; confirmed (installs).
