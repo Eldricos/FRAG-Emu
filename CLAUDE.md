@@ -350,14 +350,16 @@ compatibility database later.
     freezes (starts, races, menu, quit); log shows "ended in a wait", "ended by
     itself while waiting for the loader lock", "thread busy in Wine".
     (Vogons: 3dsetup offers only software rendering; game loads softtria.dll.)
-- **LEGO Racers (1999)** — WORKS full screen on WineHQ Wine 11.0 (fresh prefix,
-  reinstalled, intro videos on). On Ubuntu's Wine 9.0 only windowed (`desktop`):
-  full screen, the game switches DirectDraw between exclusive 640x480 and normal
-  around each intro video (quartz video windows are unowned top-level popups,
-  released properly); afterwards the "LEGO Racers" X window stayed 1920x1080 and an
+- **LEGO Racers (1999)** — WORKS windowed (`[wine] desktop = WxH`); full screen
+  BROKEN on both Ubuntu's Wine 9.0 and WineHQ Wine 11.0 (fresh prefix,
+  reinstalled; FRAG waited for InstallShield's `_ins5576._mp`/`_isdel.exe`). Full
+  screen, the game switches DirectDraw between exclusive 640x480 and normal around
+  each intro video (quartz video windows are unowned top-level popups and are
+  released properly). Afterwards the "LEGO Racers" X window stayed 1920x1080 and an
   unnamed classless 640x480 X window (likely winex11's GL client window, detached)
   sat at top level, so frames never reached the screen (stale video frame or the
-  desktop showed). Wine 11's reworked winex11 doesn't do this.
+  desktop showed). Not yet known whether `-novideo` full screen works. (A commit
+  on Oct 17 wrongly recorded full screen as working on Wine 11 before it was tested.)
   Earlier history: Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"
   (DirectShow `IVideoWindow::put_MessageDrain`, i.e. the intro video's graph
