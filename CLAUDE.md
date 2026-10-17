@@ -276,7 +276,10 @@ compatibility database later.
   - Runs from an .iso of its disc (`[drive D] image = ...`, label/serial automatic).
   - Open: intro video glitches for a few seconds.
 
-- **Need for Speed III: Hot Pursuit (1998)** — in progress.
+- **Need for Speed III: Hot Pursuit (1998)** — WORKS (WineHQ Wine 11.0, fresh
+  prefix, win98, from an .iso; installer `D:\setup\english\setup.exe`). Played for
+  a while with no noticeable issues; terminal returns by itself after quitting.
+  Not yet re-checked on Ubuntu's Wine 9.0 with fragfix. History below.
   - Installer (`setup.exe` in a subfolder, lower case) showed "Could not get
     'HardWareKey' value" from `3dsetup` (Wine bug 7115: Win9x mode, empty
     HKEY_DYN_DATA). FIXED by FRAG's Win9x hardware entries; confirmed (installs).
