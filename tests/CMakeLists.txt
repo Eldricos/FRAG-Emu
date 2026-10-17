@@ -107,6 +107,21 @@ if(MINGW32_CC)
            COMMAND ${RUN_TEST} $<TARGET_FILE:frag> ${CMAKE_CURRENT_BINARY_DIR}/thread_kill.conf)
   set_tests_properties(win32_thread_kill PROPERTIES TIMEOUT 300)
 
+  # frag waits for programs the game leaves running, then returns promptly.
+  set(SPAWN_DIR ${CMAKE_CURRENT_BINARY_DIR}/spawn-drive)
+  file(MAKE_DIRECTORY ${SPAWN_DIR})
+  add_custom_command(
+    OUTPUT ${SPAWN_DIR}/SPAWN.EXE
+    COMMAND ${MINGW32_CC} -O2 -Wall -o ${SPAWN_DIR}/SPAWN.EXE ${CMAKE_CURRENT_SOURCE_DIR}/win32/spawn.c
+    DEPENDS win32/spawn.c
+    COMMENT "Building Win32 test program spawn.exe")
+  add_custom_target(test_spawn ALL DEPENDS ${SPAWN_DIR}/SPAWN.EXE)
+  configure_file(conf/spawn.conf.in ${CMAKE_CURRENT_BINARY_DIR}/spawn.conf @ONLY)
+  add_test(NAME game_leaves_program
+           COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/spawn_test.sh $<TARGET_FILE:frag>
+                   ${CMAKE_CURRENT_BINARY_DIR}/spawn.conf ${SPAWN_DIR})
+  set_tests_properties(game_leaves_program PROPERTIES TIMEOUT 300)
+
   # A prefix is updated once when the Wine version changes.
   configure_file(conf/hello32.conf.in ${CMAKE_CURRENT_BINARY_DIR}/wine-update/hello32.conf @ONLY)
   add_test(NAME wine_version_update

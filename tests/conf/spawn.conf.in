@@ -1,0 +1,10 @@
+# A game that leaves a program running when it exits (installer bootstrap).
+[game]
+name = spawn
+exe = D:\SPAWN.EXE
+
+[drive D]
+path = @SPAWN_DIR@
+
+[sound]
+midi_synth = off
