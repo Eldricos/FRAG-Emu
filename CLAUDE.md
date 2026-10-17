@@ -358,7 +358,11 @@ compatibility database later.
   released properly). Afterwards the "LEGO Racers" X window stayed 1920x1080 and an
   unnamed classless 640x480 X window (likely winex11's GL client window, detached)
   sat at top level, so frames never reached the screen (stale video frame or the
-  desktop showed). Not yet known whether `-novideo` full screen works. (A commit
+  desktop showed). `-novideo` full screen WORKS (menus fine), so only the
+  switches around the videos break it. `desktop = 1920x1080` (screen-sized, so
+  Wine shows it full screen) shrinks to a 640x480 window when the game sets its
+  mode; host switched to 640x480 by hand + `desktop = 640x480` works but is
+  still a window; host at 640x480 + no desktop still fails. (A commit
   on Oct 17 wrongly recorded full screen as working on Wine 11 before it was tested.)
   Earlier history: Installer ran, but `frag run` didn't return
   afterwards (terminal had to be closed). Game: "Unable to set message drain"
