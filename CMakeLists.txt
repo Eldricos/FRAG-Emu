@@ -51,8 +51,8 @@ if(MINGW32_CC)
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/dlls
     COMMAND ${MINGW32_CC} -O2 -Wall -o ${CMAKE_BINARY_DIR}/dlls/fragstart.exe
             ${CMAKE_CURRENT_SOURCE_DIR}/helpers/fragstart.c
-    COMMAND ${MINGW32_CC} -O2 -Wall -shared -o ${CMAKE_BINARY_DIR}/dlls/fragfix.dll
-            ${CMAKE_CURRENT_SOURCE_DIR}/helpers/fragfix.c -lntdll
+    COMMAND ${MINGW32_CC} -O2 -Wall -shared -nostdlib -e _DllMain@12 -o ${CMAKE_BINARY_DIR}/dlls/fragfix.dll
+            ${CMAKE_CURRENT_SOURCE_DIR}/helpers/fragfix.c -lntdll -lkernel32 -luser32
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/helpers/fragstart.c ${CMAKE_CURRENT_SOURCE_DIR}/helpers/fragfix.c
     COMMENT "Building fragstart.exe and fragfix.dll")
   add_custom_target(fragstart ALL DEPENDS ${CMAKE_BINARY_DIR}/dlls/fragstart.exe)

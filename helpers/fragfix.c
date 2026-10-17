@@ -205,6 +205,16 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, void *reserved)
         if (kb) redirect(kb, safe_terminate_thread);
         if (k32 && k32 != kb) redirect(k32, safe_terminate_thread);
         log_line("fragfix: loaded\n");
+        {
+            /* Tell fragstart.exe, which then frees the page holding our name. */
+            char event_name[64];
+            HANDLE loaded;
+            wsprintfA(event_name, "fragfix-loaded-%lu", GetCurrentProcessId());
+            if ((loaded = OpenEventA(EVENT_MODIFY_STATE, FALSE, event_name))) {
+                SetEvent(loaded);
+                CloseHandle(loaded);
+            }
+        }
     }
     return TRUE;
 }
